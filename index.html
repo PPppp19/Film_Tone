@@ -68,6 +68,40 @@
   .actions .round { flex:none; width:52px; height:52px; padding:0; border-radius:50%; font-size:18px; }
   #shutter { flex:none; width:74px; height:74px; border-radius:50%; background:#f1ebe3; border:5px solid var(--accent) !important; box-shadow:0 0 0 3px var(--bg) inset; padding:0; }
   #shutter:active { transform:scale(.94); background:#d8d0c6; }
+  #fsOpen { position:absolute; top:10px; right:10px; display:none; background:rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.25); border-radius:18px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  body.cam #fsOpen { display:block; }
+  #fs { position:fixed; inset:0; background:#000; z-index:25; display:none; overflow:hidden; touch-action:none; }
+  #fs.on { display:block; }
+  #fsView { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #guide { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; filter:drop-shadow(0 0 1.5px rgba(0,0,0,.55)); }
+  #guide .l { stroke:#fff; stroke-opacity:.55; stroke-width:1.2; fill:none; vector-effect:non-scaling-stroke; }
+  #guide .f { stroke-opacity:.28; stroke-dasharray:6 6; }
+  #guide .d { fill:#fff; fill-opacity:.7; stroke:none; }
+  #guide text { fill:#fff; fill-opacity:.7; font-size:15px; font-family:-apple-system,system-ui,sans-serif; }
+  #fsFlash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+  #fsTip { position:absolute; left:50%; top:calc(64px + env(safe-area-inset-top)); transform:translateX(-50%); background:rgba(0,0,0,.55); color:#fff; padding:7px 14px; border-radius:16px; font-size:13px; text-align:center; max-width:80%; opacity:0; transition:opacity .4s; pointer-events:none; }
+  #fsTop { position:absolute; top:0; left:0; right:0; display:flex; gap:8px; align-items:center;
+    padding:calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 10px calc(12px + env(safe-area-inset-left)); }
+  .fsb { background:rgba(0,0,0,.45); color:#fff; border:1px solid rgba(255,255,255,.22); border-radius:18px; font:inherit; font-size:14px; padding:7px 12px; cursor:pointer; }
+  .fsb.chip { max-width:42%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #fsRot { display:none; }
+  #fsClose { margin-right:auto; }
+  #fsChips { position:absolute; left:0; right:0; bottom:calc(118px + env(safe-area-inset-bottom)); display:none; gap:8px; overflow-x:auto; padding:6px 12px; scrollbar-width:none; }
+  #fsChips::-webkit-scrollbar { display:none; }
+  #fsChips.on { display:flex; }
+  #fsChips button { flex:0 0 auto; }
+  #fsChips button.on { background:var(--accent); color:#1a0f05; border-color:var(--accent); }
+  #fsBar { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:space-around;
+    padding:14px calc(12px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  #fsBar .round { width:54px; height:54px; padding:0; border-radius:50%; font-size:18px; background-size:cover; background-position:center; }
+  #fsShutter { width:76px; height:76px; border-radius:50%; background:rgba(255,255,255,.92); border:5px solid var(--accent); padding:0; cursor:pointer; }
+  #fsShutter:active { transform:scale(.93); }
+  @media (orientation: landscape) {
+    #fsBar { top:0; bottom:0; left:auto; right:0; flex-direction:column; justify-content:space-around;
+      padding:12px calc(14px + env(safe-area-inset-right)) 12px 12px; }
+    #fsChips { bottom:calc(10px + env(safe-area-inset-bottom)); right:calc(110px + env(safe-area-inset-right)); left:env(safe-area-inset-left); }
+    #fsTop { right:calc(100px + env(safe-area-inset-right)); }
+  }
   #toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:#2b231c; color:var(--text); padding:8px 14px; border-radius:20px; font-size:13px; display:none; z-index:35; }
 </style>
 </head>
@@ -83,6 +117,27 @@
     <canvas id="view"></canvas>
     <div id="badge">ต้นฉบับ</div>
     <div id="flash"></div>
+    <button id="fsOpen" title="ถ่ายแบบเต็มจอ">⛶ เต็มจอ</button>
+  </div>
+</div>
+
+<!-- full-screen camera -->
+<div id="fs">
+  <canvas id="fsView"></canvas>
+  <svg id="guide"></svg>
+  <div id="fsFlash"></div>
+  <div id="fsTip"></div>
+  <div id="fsTop">
+    <button id="fsClose" class="fsb">✕</button>
+    <button id="fsFilterBtn" class="fsb chip">🎞 <span id="fsFilterName"></span></button>
+    <button id="fsGuideBtn" class="fsb chip">▦ <span id="fsGuideName">ไกด์</span></button>
+    <button id="fsRot" class="fsb" title="หมุน/กลับด้านเส้นไกด์">↻</button>
+  </div>
+  <div id="fsChips"></div>
+  <div id="fsBar">
+    <button id="fsFlip" class="fsb round">🔄</button>
+    <button id="fsShutter" aria-label="ถ่ายรูป"></button>
+    <button id="fsLast" class="fsb round" title="ดู/แต่งรูปล่าสุด"></button>
   </div>
 </div>
 
@@ -682,29 +737,41 @@ const video = document.createElement('video');
 video.muted = true; video.playsInline = true; video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
 const liveC = mk(1, 1), liveX = liveC.getContext('2d', { willReadFrequently: true });
 
-function grabFrame(maxSide, canvas) {
+// aspect: crop the centre of the camera frame to this width/height ratio (what you see = what you get)
+function grabFrame(maxSide, canvas, aspect) {
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw || !vh) return null;
-  const sc = Math.min(1, maxSide / Math.max(vw, vh));
-  const w = Math.round(vw * sc), h = Math.round(vh * sc);
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  if (aspect) {
+    if (vw / vh > aspect) { sw = Math.round(vh * aspect); sx = Math.round((vw - sw) / 2); }
+    else { sh = Math.round(vw / aspect); sy = Math.round((vh - sh) / 2); }
+  }
+  const sc = Math.min(1, maxSide / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * sc)), h = Math.max(1, Math.round(sh * sc));
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   const cx = canvas.getContext('2d');
   cx.save();
   if (facing === 'user') { cx.translate(w, 0); cx.scale(-1, 1); }
-  cx.drawImage(video, 0, 0, w, h);
+  cx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
   cx.restore();
   return { w, h };
 }
 
+let fsOn = false;
+const fsView = $('fsView'), fctx = fsView.getContext('2d');
+function screenAspect() { return window.innerWidth / window.innerHeight; }
+
 function liveLoop() {
   liveRAF = requestAnimationFrame(liveLoop);
   if (mode !== 'camera') return;
-  const d = grabFrame(540, liveC); if (!d) return;
+  const d = fsOn ? grabFrame(720, liveC, screenAspect()) : grabFrame(540, liveC);
+  if (!d) return;
   let res;
   if (comparing) res = liveC;
   else res = processImage(liveX.getImageData(0, 0, d.w, d.h), d.w, d.h, state);
-  if (view.width !== res.width || view.height !== res.height) { view.width = res.width; view.height = res.height; }
-  vctx.drawImage(res, 0, 0);
+  const tv = fsOn ? fsView : view, tx = fsOn ? fctx : vctx;
+  if (tv.width !== res.width || tv.height !== res.height) { tv.width = res.width; tv.height = res.height; }
+  tx.drawImage(res, 0, 0);
   if (res !== liveC) free(res);
 }
 
@@ -739,6 +806,8 @@ function setMode(m) {
   $('editActions').style.display = m === 'edit' ? 'flex' : 'none';
   $('camActions').style.display = m === 'camera' ? 'flex' : 'none';
   comparing = false; $('badge').style.display = 'none';
+  document.body.classList.toggle('cam', m === 'camera');
+  if (m !== 'camera' && fsOn) closeFS(true);
   if (m === 'camera') { startCam(); }
   else {
     stopCam();
@@ -762,6 +831,174 @@ $('shutter').onclick = () => {
   loadSource(c);
   toast('ถ่ายแล้ว! ปรับต่อได้ หรือกด “บันทึกรูป”');
 };
+
+// =============== full-screen camera + composition guides ===============
+const GUIDES = [
+  { id:'none', name:'ไม่มีไกด์', tip:'' },
+  { id:'thirds', name:'กฎสามส่วน', tip:'วางจุดสนใจตรงจุดตัดของเส้น' },
+  { id:'center', name:'จัดกึ่งกลาง', tip:'วางวัตถุไว้กลางภาพ ให้ดูนิ่งและเด่น' },
+  { id:'golden', name:'อัตราส่วนทองคำ', tip:'วางจุดสนใจที่ใจกลางเกลียว · กด ↻ เพื่อหมุน', rot:true },
+  { id:'symmetry', name:'สมมาตร', tip:'ให้ซ้าย-ขวา (หรือบน-ล่าง) สะท้อนกันพอดี' },
+  { id:'leading', name:'เส้นนำสายตา', tip:'ใช้ถนน ราง รั้ว นำสายตาไปที่จุด · กด ↻ เพื่อย้ายจุด', rot:true },
+  { id:'diagonal', name:'เส้นทแยง', tip:'วางเส้นหลักตามแนวทแยง ภาพจะดูมีพลัง' },
+  { id:'vshape', name:'รูปตัว V', tip:'ใช้หุบเขา ตึก หรือต้นไม้ที่เป็นรูป V · กด ↻ เพื่อกลับหัว', rot:true },
+  { id:'scurve', name:'เส้นโค้ง S', tip:'ใช้ถนนหรือแม่น้ำที่คดเคี้ยวเป็นรูป S · กด ↻ เพื่อกลับด้าน', rot:true },
+  { id:'frame', name:'กรอบในกรอบ', tip:'ใช้ประตู หน้าต่าง ซุ้ม เป็นกรอบล้อมวัตถุ' },
+  { id:'juxta', name:'คู่ตรงข้าม', tip:'Juxtaposition: วางสองสิ่งที่ต่างกันไว้คนละฝั่ง เช่น เก่า/ใหม่' },
+  { id:'repeat', name:'การซ้ำ', tip:'Repetition: หาสิ่งที่เรียงซ้ำเป็นจังหวะ เช่น หน้าต่าง เสา' },
+];
+let guideId = 'thirds', guideFlip = 0;
+try { guideId = localStorage.getItem('filmtone-guide') || 'thirds'; } catch (e) {}
+
+function L(x1, y1, x2, y2, cls) { return `<line class="l ${cls || ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
+function D(x, y, r) { return `<circle class="d" cx="${x}" cy="${y}" r="${r || 3.5}"/>`; }
+function C(x, y, r, cls) { return `<circle class="l ${cls || ''}" cx="${x}" cy="${y}" r="${r}"/>`; }
+function P(d, cls) { return `<path class="l ${cls || ''}" d="${d}"/>`; }
+
+function goldenSpiral(W, H) {
+  const phi = 1.6180339887;
+  let x = 0, y = 0, w = phi, h = 1, pts = [], squares = '';
+  const sxF = W / phi, syF = H;
+  for (let i = 0; i < 10; i++) {
+    const dir = i % 4; let s, cx, cy, a0;
+    if (dir === 0) { s = h; cx = x + s; cy = y + s; a0 = Math.PI; squares += L((x + s) * sxF, y * syF, (x + s) * sxF, (y + h) * syF, 'f'); x += s; w -= s; }
+    else if (dir === 1) { s = w; cx = x; cy = y + s; a0 = 1.5 * Math.PI; squares += L(x * sxF, (y + s) * syF, (x + w) * sxF, (y + s) * syF, 'f'); y += s; h -= s; }
+    else if (dir === 2) { s = h; cx = x + w - s; cy = y; a0 = 0; squares += L((x + w - s) * sxF, y * syF, (x + w - s) * sxF, (y + h) * syF, 'f'); w -= s; }
+    else { s = w; cx = x + s; cy = y + h - s; a0 = .5 * Math.PI; squares += L(x * sxF, (y + h - s) * syF, (x + w) * sxF, (y + h - s) * syF, 'f'); h -= s; }
+    for (let k = 0; k <= 16; k++) {
+      const a = a0 + (Math.PI / 2) * k / 16;
+      pts.push(((cx + s * Math.cos(a)) * sxF).toFixed(1) + ',' + ((cy + s * Math.sin(a)) * syF).toFixed(1));
+    }
+  }
+  return squares + `<polyline class="l" points="${pts.join(' ')}"/>`;
+}
+
+function guideSVG(id, W, H, f) {
+  const m = Math.min(W, H);
+  let s = '';
+  switch (id) {
+    case 'thirds':
+      s = L(W / 3, 0, W / 3, H) + L(2 * W / 3, 0, 2 * W / 3, H) + L(0, H / 3, W, H / 3) + L(0, 2 * H / 3, W, 2 * H / 3)
+        + D(W / 3, H / 3) + D(2 * W / 3, H / 3) + D(W / 3, 2 * H / 3) + D(2 * W / 3, 2 * H / 3); break;
+    case 'center':
+      s = L(W / 2, 0, W / 2, H, 'f') + L(0, H / 2, W, H / 2, 'f') + C(W / 2, H / 2, m * .14)
+        + L(W / 2 - 14, H / 2, W / 2 + 14, H / 2) + L(W / 2, H / 2 - 14, W / 2, H / 2 + 14); break;
+    case 'golden':
+      s = L(W * .382, 0, W * .382, H, 'f') + L(W * .618, 0, W * .618, H, 'f') + L(0, H * .382, W, H * .382, 'f') + L(0, H * .618, W, H * .618, 'f')
+        + (H > W ? `<g transform="matrix(0,1,1,0,0,0)">${goldenSpiral(H, W)}</g>` : goldenSpiral(W, H)); break;
+    case 'symmetry':
+      s = L(W / 2, 0, W / 2, H) + L(0, H / 2, W, H / 2, 'f')
+        + P(`M${W / 2 - 34},${H / 2 - 50} l-14,10 l14,10`) + P(`M${W / 2 + 34},${H / 2 - 50} l14,10 l-14,10`); break;
+    case 'leading': {
+      const vps = [[W / 2, H * .42], [W / 3, H / 3], [2 * W / 3, H / 3], [W / 2, H * .62]];
+      const [vx, vy] = vps[f % 4];
+      s = L(0, H, vx, vy) + L(W, H, vx, vy) + L(W * .3, H, vx, vy, 'f') + L(W * .7, H, vx, vy, 'f') + L(0, H * .62, vx, vy, 'f') + L(W, H * .62, vx, vy, 'f')
+        + C(vx, vy, 9) + D(vx, vy, 3); return s;
+    }
+    case 'diagonal': {
+      const foot = (px, py) => { const t = (px * W + py * H) / (W * W + H * H); return [t * W, t * H]; };
+      const foot2 = (px, py) => { const t = (px * W + (py - H) * -H) / (W * W + H * H); return [t * W, H - t * H]; };
+      const [ax, ay] = foot(W, 0), [bx, by] = foot(0, H), [cx, cy] = foot2(0, 0), [dx, dy] = foot2(W, H);
+      s = L(0, 0, W, H) + L(0, H, W, 0) + L(W, 0, ax, ay, 'f') + L(0, H, bx, by, 'f') + L(0, 0, cx, cy, 'f') + L(W, H, dx, dy, 'f');
+      return s;
+    }
+    case 'vshape':
+      s = L(0, 0, W / 2, H * .85) + L(W, 0, W / 2, H * .85) + L(W * .2, 0, W / 2, H * .85, 'f') + L(W * .8, 0, W / 2, H * .85, 'f') + D(W / 2, H * .85); break;
+    case 'scurve':
+      s = P(`M${W * .28},${H} C${W * .95},${H * .72} ${W * .05},${H * .34} ${W * .7},0`)
+        + P(`M${W * .18},${H} C${W * .85},${H * .72} ${W * -.05},${H * .34} ${W * .6},0`, 'f'); break;
+    case 'frame': {
+      const ix = W * .17, iy = H * .17, iw = W * .66, ih = H * .66, c = m * .07;
+      s = `<rect class="l f" x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="6"/>`
+        + P(`M${ix},${iy + c} V${iy} H${ix + c}`) + P(`M${ix + iw - c},${iy} H${ix + iw} V${iy + c}`)
+        + P(`M${ix},${iy + ih - c} V${iy + ih} H${ix + c}`) + P(`M${ix + iw - c},${iy + ih} H${ix + iw} V${iy + ih - c}`)
+        + D(W / 2, H / 2); break;
+    }
+    case 'juxta':
+      s = L(W / 2, 0, W / 2, H, 'f') + C(W / 4, H / 2, m * .12) + C(3 * W / 4, H / 2, m * .12)
+        + `<text x="${W / 4}" y="${H / 2 + 5}" text-anchor="middle">A</text><text x="${3 * W / 4}" y="${H / 2 + 5}" text-anchor="middle">B</text>`; break;
+    case 'repeat': {
+      const n = 6;
+      for (let i = 1; i < n; i++) s += L(W * i / n, 0, W * i / n, H, 'f');
+      for (let i = 0; i < n; i++) s += `<rect class="l" x="${W * (i + .5) / n - m * .03}" y="${H * .55}" width="${m * .06}" height="${m * .1}" rx="3"/>`;
+      s += L(0, H * .55 + m * .12, W, H * .55 + m * .12, 'f'); break;
+    }
+  }
+  if (!s) return '';
+  const sx = f & 1 ? -1 : 1, sy = f & 2 ? -1 : 1;
+  return `<g transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})">${s}</g>`;
+}
+
+function drawGuide() {
+  const W = window.innerWidth, H = window.innerHeight, g = GUIDES.find(x => x.id === guideId) || GUIDES[0];
+  const svg = $('guide');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = guideSVG(g.id, W, H, guideFlip);
+  $('fsGuideName').textContent = g.id === 'none' ? 'ไกด์' : g.name;
+  $('fsRot').style.display = g.rot ? 'block' : 'none';
+}
+function fsTip(t) {
+  const el = $('fsTip'); if (!t) { el.style.opacity = 0; return; }
+  el.textContent = t; el.style.opacity = 1;
+  clearTimeout(fsTip.t); fsTip.t = setTimeout(() => el.style.opacity = 0, 2600);
+}
+function chips(kind) {
+  const box = $('fsChips');
+  if (box.classList.contains('on') && box.dataset.kind === kind) { box.classList.remove('on'); return; }
+  box.dataset.kind = kind; box.innerHTML = '';
+  const items = kind === 'guide' ? GUIDES.map(g => ({ id: g.id, name: g.name })) : allPresets().map(p => ({ id: p.id, name: p.name }));
+  const cur = kind === 'guide' ? guideId : state.preset.id;
+  items.forEach(it => {
+    const b = document.createElement('button'); b.className = 'fsb' + (it.id === cur ? ' on' : ''); b.textContent = it.name;
+    b.onclick = () => {
+      if (kind === 'guide') {
+        guideId = it.id; guideFlip = 0; try { localStorage.setItem('filmtone-guide', guideId); } catch (e) {}
+        drawGuide(); fsTip((GUIDES.find(g => g.id === it.id) || {}).tip);
+      } else {
+        selectPreset(allPresets().find(p => p.id === it.id)); $('fsFilterName').textContent = it.name;
+      }
+      box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    };
+    box.appendChild(b);
+  });
+  box.classList.add('on');
+  const on = box.querySelector('.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+
+function openFS() {
+  fsOn = true; $('fs').classList.add('on');
+  $('fsFilterName').textContent = state.preset.name;
+  drawGuide();
+  if (!stream) startCam();
+}
+function closeFS(silent) {
+  fsOn = false; $('fs').classList.remove('on'); $('fsChips').classList.remove('on');
+  comparing = false;
+}
+$('fsOpen').onclick = openFS;
+$('fsClose').onclick = () => closeFS();
+$('fsGuideBtn').onclick = () => chips('guide');
+$('fsFilterBtn').onclick = () => chips('filter');
+$('fsRot').onclick = () => { guideFlip = (guideFlip + 1) % 4; drawGuide(); };
+$('fsFlip').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; startCam(); };
+$('fsShutter').onclick = () => {
+  if (!stream) { startCam(); return; }
+  const c = mk(1, 1);
+  if (!grabFrame(4096, c, screenAspect())) return;
+  const fl = $('fsFlash'); fl.style.transition = 'none'; fl.style.opacity = '.9';
+  requestAnimationFrame(() => { fl.style.transition = 'opacity .35s'; fl.style.opacity = '0'; });
+  if (state.date) dateStr = new Date().toISOString().slice(0, 10);
+  setTimeout(() => {
+    loadSource(c);
+    const t = processImage(srcThumb.data, srcThumb.w, srcThumb.h, state);
+    $('fsLast').style.backgroundImage = `url(${t.toDataURL('image/jpeg', .8)})`; free(t);
+    fsTip('ถ่ายแล้ว · แตะรูปเล็กเพื่อแต่ง/บันทึก');
+  }, 30);
+};
+$('fsLast').onclick = () => { if (!img) return; closeFS(); setMode('edit'); };
+fsView.addEventListener('pointerdown', () => { comparing = true; });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => fsView.addEventListener(ev, () => { comparing = false; }));
+window.addEventListener('resize', () => { if (fsOn) drawGuide(); });
 
 document.addEventListener('visibilitychange', () => {
   if (mode !== 'camera') return;

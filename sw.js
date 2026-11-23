@@ -1,4 +1,4 @@
-const CACHE = 'filmtone-v4';
+const CACHE = 'filmtone-v5';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
