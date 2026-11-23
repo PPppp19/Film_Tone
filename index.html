@@ -110,6 +110,33 @@ const PRESETS = [
   { id:'bw', name:'ขาวดำ 400', p:{bw:true, con:.45, sat:0, gam:[1,1,1], lift:[.04,.04,.04], gain:[.97,.97,.97], sh:[0,0,0], hi:[0,0,0]}, d:{ grain:45, gsize:20, vig:35 } },
   { id:'expired', name:'ฟิล์มหมดอายุ', p:{con:-.1, sat:.8, gam:[.95,1,1.05], lift:[.12,.08,.1], gain:[.98,.92,.85], sh:[.04,0,.04], hi:[.05,.03,-.04]}, d:{ grain:50, gsize:22, gcolor:30, vig:35, leak:55, dust:30, fade:20, soft:20, ca:20 } },
   { id:'dispo', name:'กล้องใช้แล้วทิ้ง', p:{con:.4, sat:1.2, gam:[.97,.98,1.04], lift:[.03,.03,.02], gain:[1,.98,.9], sh:[0,.01,-.01], hi:[.03,.02,-.02]}, d:{ grain:35, vig:55, leak:20, date:true, soft:25, ca:30, halation:15, exp:6 } },
+
+  // ---- Japan tones ----
+  // japan_01 was measured from a before/after pair (curves + color matrix)
+  { id:'japan_01', name:'japan_01', p:{ sat:1, sh:[0,0,0], hi:[0,0,0],
+      curves:[[.103,.182,.263,.352,.428,.498,.559,.615,.668,.72,.766,.809,.859,.909,.955,.976,.986],
+              [.073,.161,.237,.309,.378,.442,.499,.554,.61,.666,.716,.759,.807,.858,.908,.929,.943],
+              [.075,.133,.195,.26,.323,.386,.454,.514,.567,.621,.676,.723,.771,.831,.891,.907,.931]],
+      mat:[[1.225,.338,-.525],[-.396,1.578,-.139],[-.342,-.251,1.575]], off:[-.057,.004,.058] },
+    d:{ grain:6, vig:0 } },
+  // bright, soft, anime-like: cyan skies, yellowish greens, lifted blacks
+  { id:'japan_02', name:'japan_02', p:{con:-.08, sat:1.12, gam:[.9,.88,.9], lift:[.07,.07,.09], gain:[1,1,1], sh:[.015,0,.02], hi:[.02,.02,0],
+      mat:[[.92,.1,-.02],[0,.84,.16],[0,.04,.96]] }, d:{ grain:6, vig:0, exp:16, sat:8 } },
+  // pale cool blue/cyan, light and airy
+  { id:'japan_03', name:'japan_03', p:{con:.04, sat:.92, gam:[1.04,.97,.94], lift:[.05,.08,.1], gain:[.95,1,1], sh:[-.02,.02,.035], hi:[-.01,.02,.02],
+      mat:[[1,0,0],[0,.88,.12],[0,.05,.95]] }, d:{ grain:10, vig:0, exp:5, fade:8 } },
+  // slightly muddy blue, cinematic: teal shadows, warm skin, muted color
+  { id:'japan_04', name:'japan_04', p:{con:.22, sat:.85, gam:[1.02,1,.96], lift:[.03,.05,.08], gain:[.97,.97,.94], sh:[-.035,0,.05], hi:[.04,.02,-.015],
+      mat:[[1.03,0,-.03],[-.02,1,.02],[-.02,.02,1]] }, d:{ grain:12, vig:15 } },
+  // blue-green, clean and minimal, stronger contrast
+  { id:'japan_05', name:'japan_05', p:{con:.36, sat:1.05, gam:[1.02,.98,.97], lift:[0,.02,.035], gain:[1,1,1], sh:[-.03,.02,.04], hi:[.01,.01,0],
+      mat:[[1,0,0],[0,.87,.13],[-.02,.04,.98]] }, d:{ grain:8, vig:10 } },
+  // warm white, soft sunlight, gentle brown tone
+  { id:'japan_06', name:'japan_06', p:{con:-.1, sat:.84, gam:[.95,.97,1.05], lift:[.08,.06,.04], gain:[1,.97,.9], sh:[.03,.015,0], hi:[.03,.02,-.02],
+      mat:[[1.02,.02,-.04],[0,1,0],[0,.02,.98]] }, d:{ grain:12, vig:5, exp:3, fade:10 } },
+  // cool, stylish, moody blue with deep shadows
+  { id:'japan_07', name:'japan_07', p:{con:.36, sat:.9, gam:[1.05,1.02,.98], lift:[.02,.03,.05], gain:[.96,.97,.98], sh:[-.035,0,.045], hi:[.03,.01,-.02],
+      mat:[[1.04,-.02,-.02],[-.02,1,.02],[-.03,.03,1]] }, d:{ grain:15, vig:25, exp:-8 } },
 ];
 
 const DEFAULTS = { intensity:100, exp:0, con:0, hl:0, sh:0, fade:0, temp:0, tint:0, sat:0,
@@ -172,6 +199,14 @@ function filmLUT(p, P) {
   const C = [];
   for (let c = 0; c < 3; c++) {
     const a = new Float32Array(256);
+    if (p.curves) {
+      const k = p.curves[c], n = k.length - 1;
+      for (let i = 0; i < 256; i++) {
+        const t = Math.min(1, P[i]) * n, j = Math.min(n - 1, t | 0), f = t - j;
+        a[i] = k[j] + (k[j + 1] - k[j]) * f;
+      }
+      C.push(a); continue;
+    }
     for (let i = 0; i < 256; i++) {
       let x = Math.pow(P[i], p.gam[c]);
       const s = x * x * (3 - 2 * x);
@@ -205,6 +240,7 @@ function colorPass(src, w, h, st, ctx) {
   const P = new Float32Array(256);
   for (let i = 0; i < 256; i++) { let x = i / 255 * e; if (x > .8) x = .8 + .2 * (1 - Math.exp(-(x - .8) / .2)); P[i] = x; }
   const C = pr ? filmLUT(pr, P) : null;
+  const m = pr && pr.mat ? pr.mat : null, mo = (pr && pr.off) || [0, 0, 0];
   const U = userLUT(st);
   const k = st.intensity / 100, satU = 1 + st.sat / 100, temp = st.temp / 100, tint = st.tint / 100;
   const vig = st.vig / 100 * .85;
@@ -231,6 +267,12 @@ function colorPass(src, w, h, st, ctx) {
       if (pr) {
         if (pr.bw) { const li = Math.round(.3 * r0 + .59 * g0 + .11 * b0); r = g = b = C[0][li]; }
         else { r = C[0][r0]; g = C[1][g0]; b = C[2][b0]; }
+        if (m) {
+          const r1 = m[0][0] * r + m[0][1] * g + m[0][2] * b + mo[0];
+          const g1 = m[1][0] * r + m[1][1] * g + m[1][2] * b + mo[1];
+          const b1 = m[2][0] * r + m[2][1] * g + m[2][2] * b + mo[2];
+          r = r1; g = g1; b = b1;
+        }
         const lum = .299 * r + .587 * g + .114 * b;
         r = lum + (r - lum) * pr.sat; g = lum + (g - lum) * pr.sat; b = lum + (b - lum) * pr.sat;
         const ws = (1 - lum) * (1 - lum), wh = lum * lum;
