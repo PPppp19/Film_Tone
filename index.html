@@ -60,13 +60,21 @@
   #result p { color:var(--muted); font-size:14px; text-align:center; }
   #result button { font:inherit; font-size:16px; padding:12px; border-radius:12px; width:200px; margin-top:6px; }
   #busy { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:40; font-size:15px; }
+  .seg { display:flex; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:2px; }
+  .seg button { background:none; border:none; color:var(--muted); font:inherit; font-size:13px; font-weight:600; padding:6px 12px; border-radius:8px; cursor:pointer; }
+  .seg button.on { background:#2b231c; color:var(--accent); }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .actions.cam { align-items:center; justify-content:space-between; padding-left:32px; padding-right:32px; }
+  .actions .round { flex:none; width:52px; height:52px; padding:0; border-radius:50%; font-size:18px; }
+  #shutter { flex:none; width:74px; height:74px; border-radius:50%; background:#f1ebe3; border:5px solid var(--accent) !important; box-shadow:0 0 0 3px var(--bg) inset; padding:0; }
+  #shutter:active { transform:scale(.94); background:#d8d0c6; }
   #toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:#2b231c; color:var(--text); padding:8px 14px; border-radius:20px; font-size:13px; display:none; z-index:35; }
 </style>
 </head>
 <body>
 <header>
   <h1>Film <span>Tone</span></h1>
-  <div class="hint">กดค้างที่รูป = ดูต้นฉบับ</div>
+  <div class="seg"><button id="modeEdit" class="on">แต่งรูป</button><button id="modeCam">📷 กล้อง</button></div>
 </header>
 
 <div id="stageWrap">
@@ -74,20 +82,27 @@
     <div id="empty"><div class="big">🎞️</div>แตะเพื่อเลือกรูป</div>
     <canvas id="view"></canvas>
     <div id="badge">ต้นฉบับ</div>
+    <div id="flash"></div>
   </div>
 </div>
 
 <div id="presets"></div>
 <div id="tabs"></div>
 <div id="panels"></div>
-<div class="small">แตะชื่อค่า 2 ครั้ง = รีเซ็ตค่านั้น</div>
+<div class="small">แตะชื่อค่า 2 ครั้ง = รีเซ็ตค่านั้น · กดค้างที่รูป = ดูต้นฉบับ</div>
 
-<div class="actions">
+<div class="actions" id="editActions">
   <button class="secondary" id="pick">เลือกรูป</button>
   <button class="primary" id="save" disabled>บันทึกรูป</button>
 </div>
+<div class="actions cam" id="camActions" style="display:none">
+  <button class="secondary round" id="flip" title="สลับกล้องหน้า/หลัง">🔄</button>
+  <button id="shutter" aria-label="ถ่ายรูป"></button>
+  <button class="secondary round" id="nativeCam" title="ใช้กล้อง iPhone ความละเอียดเต็ม">HD</button>
+</div>
 
 <input id="file" type="file" accept="image/*" hidden>
+<input id="camFile" type="file" accept="image/*" capture="environment" hidden>
 
 <div id="result">
   <img id="resultImg" alt="">
@@ -499,7 +514,7 @@ function processImage(src, w, h, st) {
 }
 
 function sourceData(maxSide, maxArea) {
-  let w = img.naturalWidth, h = img.naturalHeight;
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
   let sc = Math.min(1, maxSide / Math.max(w, h));
   if (maxArea && w * h * sc * sc > maxArea) sc = Math.sqrt(maxArea / (w * h));
   w = Math.max(1, Math.round(w * sc)); h = Math.max(1, Math.round(h * sc));
@@ -641,10 +656,7 @@ function syncUI() {
 $('pick').onclick = () => $('file').click();
 $('empty').onclick = () => $('file').click();
 
-$('file').addEventListener('change', async e => {
-  const f = e.target.files[0]; if (!f) return;
-  const im = new Image(); im.src = URL.createObjectURL(f);
-  try { await im.decode(); } catch (err) { toast('เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'); return; }
+function loadSource(im) {
   img = im;
   srcPrev = sourceData(1200);
   srcThumb = sourceData(150);
@@ -652,10 +664,112 @@ $('file').addEventListener('change', async e => {
   $('save').disabled = false;
   buildPresetStrip();
   render();
+}
+async function onFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image(); im.src = URL.createObjectURL(f);
+  try { await im.decode(); } catch (err) { toast('เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'); return; }
   e.target.value = '';
+  if (mode === 'camera') setMode('edit');
+  loadSource(im);
+}
+$('file').addEventListener('change', onFile);
+$('camFile').addEventListener('change', onFile);
+
+// =============== camera mode ===============
+let mode = 'edit', stream = null, facing = 'environment', liveRAF = 0;
+const video = document.createElement('video');
+video.muted = true; video.playsInline = true; video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
+const liveC = mk(1, 1), liveX = liveC.getContext('2d', { willReadFrequently: true });
+
+function grabFrame(maxSide, canvas) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  const sc = Math.min(1, maxSide / Math.max(vw, vh));
+  const w = Math.round(vw * sc), h = Math.round(vh * sc);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const cx = canvas.getContext('2d');
+  cx.save();
+  if (facing === 'user') { cx.translate(w, 0); cx.scale(-1, 1); }
+  cx.drawImage(video, 0, 0, w, h);
+  cx.restore();
+  return { w, h };
+}
+
+function liveLoop() {
+  liveRAF = requestAnimationFrame(liveLoop);
+  if (mode !== 'camera') return;
+  const d = grabFrame(540, liveC); if (!d) return;
+  let res;
+  if (comparing) res = liveC;
+  else res = processImage(liveX.getImageData(0, 0, d.w, d.h), d.w, d.h, state);
+  if (view.width !== res.width || view.height !== res.height) { view.width = res.width; view.height = res.height; }
+  vctx.drawImage(res, 0, 0);
+  if (res !== liveC) free(res);
+}
+
+async function startCam() {
+  stopCam();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('เบราว์เซอร์นี้เปิดกล้องสดไม่ได้ ใช้ปุ่ม HD แทนนะ'); return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
+  } catch (e) {
+    toast(e.name === 'NotAllowedError' ? 'ยังไม่ได้อนุญาตให้ใช้กล้อง' : 'เปิดกล้องไม่ได้ ลองปุ่ม HD แทนนะ');
+    return;
+  }
+  if (mode !== 'camera') { stopCam(); return; }
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+  view.style.display = 'block'; $('empty').style.display = 'none';
+  cancelAnimationFrame(liveRAF); liveLoop();
+}
+function stopCam() {
+  cancelAnimationFrame(liveRAF);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.srcObject = null;
+}
+
+function setMode(m) {
+  mode = m;
+  $('modeEdit').classList.toggle('on', m === 'edit');
+  $('modeCam').classList.toggle('on', m === 'camera');
+  $('editActions').style.display = m === 'edit' ? 'flex' : 'none';
+  $('camActions').style.display = m === 'camera' ? 'flex' : 'none';
+  comparing = false; $('badge').style.display = 'none';
+  if (m === 'camera') { startCam(); }
+  else {
+    stopCam();
+    if (srcPrev) render();
+    else { view.style.display = 'none'; $('empty').style.display = 'block'; }
+  }
+}
+$('modeEdit').onclick = () => setMode('edit');
+$('modeCam').onclick = () => setMode('camera');
+$('flip').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; startCam(); };
+$('nativeCam').onclick = () => $('camFile').click();
+
+$('shutter').onclick = () => {
+  if (!stream) { startCam(); return; }
+  const c = mk(1, 1);
+  if (!grabFrame(4096, c)) return;
+  const fl = $('flash'); fl.style.transition = 'none'; fl.style.opacity = '.85';
+  requestAnimationFrame(() => { fl.style.transition = 'opacity .35s'; fl.style.opacity = '0'; });
+  if (state.date) dateStr = new Date().toISOString().slice(0, 10);
+  setMode('edit');
+  loadSource(c);
+  toast('ถ่ายแล้ว! ปรับต่อได้ หรือกด “บันทึกรูป”');
+};
+
+document.addEventListener('visibilitychange', () => {
+  if (mode !== 'camera') return;
+  if (document.hidden) stopCam(); else startCam();
 });
 
 function showOriginal(on) {
+  if (mode === 'camera') { comparing = on; $('badge').style.display = on ? 'block' : 'none'; return; }
   if (!srcPrev) return;
   comparing = on;
   $('badge').style.display = on ? 'block' : 'none';
