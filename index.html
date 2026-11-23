@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Film Tone">
+<meta name="theme-color" content="#121110">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Film Tone</title>
+<style>
+  :root { --bg:#121110; --panel:#1c1a18; --line:#2e2a26; --text:#f1ebe3; --muted:#9a9189; --accent:#ff8a2a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Sukhumvit Set","Thonburi",system-ui,sans-serif; }
+  body { padding:env(safe-area-inset-top) 0 0; min-height:100vh; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px 6px; }
+  h1 { font-size:20px; margin:0; letter-spacing:.5px; }
+  h1 span { color:var(--accent); }
+  .hint { font-size:12px; color:var(--muted); }
+  #stageWrap { position:sticky; top:0; z-index:5; background:var(--bg); padding:4px 12px 0; }
+  #stage { position:relative; border-radius:14px; background:#0a0908; height:42vh;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+  #view { max-width:100%; max-height:100%; display:none; }
+  #empty { text-align:center; color:var(--muted); padding:40px 20px; cursor:pointer; }
+  #empty .big { font-size:54px; margin-bottom:8px; }
+  #badge { position:absolute; top:10px; left:10px; background:rgba(0,0,0,.6); padding:4px 10px; border-radius:20px; font-size:12px; display:none; }
+  #presets { display:flex; gap:10px; overflow-x:auto; padding:12px 12px 4px; scrollbar-width:none; }
+  #presets::-webkit-scrollbar { display:none; }
+  .preset { position:relative; flex:0 0 auto; width:72px; text-align:center; font-size:11px; color:var(--muted); cursor:pointer; }
+  .preset canvas, .preset .ph { width:72px; height:72px; border-radius:10px; object-fit:cover; display:block; border:2px solid transparent; background:#2a2622; }
+  .preset .ph { display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--muted); }
+  .preset.on { color:var(--text); }
+  .preset.on canvas, .preset.on .ph { border-color:var(--accent); }
+  .preset .lab { margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .preset .del { position:absolute; top:-4px; right:-4px; width:20px; height:20px; border-radius:50%; background:#3a3430; color:#fff; font-size:13px; line-height:20px; }
+  #tabs { display:flex; gap:6px; padding:10px 12px 2px; align-items:center; }
+  #tabs button.tab { flex:1; padding:9px 4px; font-size:14px; border-radius:10px; background:var(--panel); color:var(--muted); border:1px solid var(--line); font-weight:600; }
+  #tabs button.tab.on { background:#2b231c; color:var(--accent); border-color:#5a3a1c; }
+  .panel { display:none; padding:4px 16px 4px; }
+  .panel.on { display:block; }
+  .row { display:flex; align-items:center; gap:10px; margin:10px 0; font-size:14px; }
+  .row label { width:112px; flex:0 0 auto; }
+  .row input[type=range] { flex:1; accent-color:var(--accent); }
+  .row .v { width:36px; text-align:right; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+  .row select, .row input[type=date] { flex:1; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 8px; font:inherit; font-size:14px; }
+  .row input[type=checkbox] { width:22px; height:22px; accent-color:var(--accent); }
+  .small { font-size:12px; color:var(--muted); padding:2px 16px 0; }
+  .linkbtn { background:none; border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .actions { position:sticky; bottom:0; display:flex; gap:10px; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(transparent, var(--bg) 30%); }
+  .actions button { flex:1; font:inherit; font-size:16px; font-weight:600; padding:14px; border-radius:12px; border:none; cursor:pointer; }
+  .secondary { background:var(--panel); color:var(--text); border:1px solid var(--line) !important; }
+  .primary { background:var(--accent); color:#1a0f05; }
+  button:disabled { opacity:.4; }
+  #result { position:fixed; inset:0; background:rgba(0,0,0,.94); display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px; z-index:30; }
+  #result img { max-width:100%; max-height:72vh; border-radius:6px; -webkit-touch-callout:default; }
+  #result p { color:var(--muted); font-size:14px; text-align:center; }
+  #result button { font:inherit; font-size:16px; padding:12px; border-radius:12px; width:200px; margin-top:6px; }
+  #busy { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:40; font-size:15px; }
+  #toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:#2b231c; color:var(--text); padding:8px 14px; border-radius:20px; font-size:13px; display:none; z-index:35; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Film <span>Tone</span></h1>
+  <div class="hint">กดค้างที่รูป = ดูต้นฉบับ</div>
+</header>
+
+<div id="stageWrap">
+  <div id="stage">
+    <div id="empty"><div class="big">🎞️</div>แตะเพื่อเลือกรูป</div>
+    <canvas id="view"></canvas>
+    <div id="badge">ต้นฉบับ</div>
+  </div>
+</div>
+
+<div id="presets"></div>
+<div id="tabs"></div>
+<div id="panels"></div>
+<div class="small">แตะชื่อค่า 2 ครั้ง = รีเซ็ตค่านั้น</div>
+
+<div class="actions">
+  <button class="secondary" id="pick">เลือกรูป</button>
+  <button class="primary" id="save" disabled>บันทึกรูป</button>
+</div>
+
+<input id="file" type="file" accept="image/*" hidden>
+
+<div id="result">
+  <img id="resultImg" alt="">
+  <p>กดค้างที่รูปแล้วเลือก “บันทึกลงในรูปภาพ”</p>
+  <button class="secondary" id="closeResult">ปิด</button>
+</div>
+<div id="busy">กำลังล้างฟิล์ม…</div>
+<div id="toast"></div>
+
+<script>
+// =============== Film stocks ===============
+// p = base look of the film (tone curve per channel, saturation, split toning)
+// d = default values for the adjustable settings
+const PRESETS = [
+  { id:'none', name:'ต้นฉบับ', p:null, d:{ grain:0, vig:0 } },
+  { id:'warm', name:'Warm 400', p:{con:.12, sat:.92, gam:[.96,.99,1.03], lift:[.055,.045,.04], gain:[1,.98,.93], sh:[0,.01,.025], hi:[.04,.02,-.02]}, d:{ grain:20, vig:20, halation:10, soft:10 } },
+  { id:'gold', name:'Gold 200', p:{con:.28, sat:1.15, gam:[.95,.98,1.08], lift:[.04,.03,.01], gain:[1,.97,.86], sh:[.02,.01,-.02], hi:[.05,.03,-.04]}, d:{ grain:25, vig:30, halation:15 } },
+  { id:'green', name:'Green 400', p:{con:.2, sat:1.05, gam:[1.02,.97,1], lift:[.03,.05,.05], gain:[.97,1,.97], sh:[-.02,.03,.02], hi:[.01,.02,-.01]}, d:{ grain:22, vig:25 } },
+  { id:'night', name:'Tungsten 800', p:{con:.3, sat:1, gam:[1.04,1,.95], lift:[.02,.04,.07], gain:[.97,.98,1], sh:[-.03,.01,.05], hi:[.06,.01,-.02]}, d:{ grain:35, gsize:20, gcolor:15, vig:30, halation:55, leak:25 } },
+  { id:'bw', name:'ขาวดำ 400', p:{bw:true, con:.45, sat:0, gam:[1,1,1], lift:[.04,.04,.04], gain:[.97,.97,.97], sh:[0,0,0], hi:[0,0,0]}, d:{ grain:45, gsize:20, vig:35 } },
+  { id:'expired', name:'ฟิล์มหมดอายุ', p:{con:-.1, sat:.8, gam:[.95,1,1.05], lift:[.12,.08,.1], gain:[.98,.92,.85], sh:[.04,0,.04], hi:[.05,.03,-.04]}, d:{ grain:50, gsize:22, gcolor:30, vig:35, leak:55, dust:30, fade:20, soft:20, ca:20 } },
+  { id:'dispo', name:'กล้องใช้แล้วทิ้ง', p:{con:.4, sat:1.2, gam:[.97,.98,1.04], lift:[.03,.03,.02], gain:[1,.98,.9], sh:[0,.01,-.01], hi:[.03,.02,-.02]}, d:{ grain:35, vig:55, leak:20, date:true, soft:25, ca:30, halation:15, exp:6 } },
+];
+
+const DEFAULTS = { intensity:100, exp:0, con:0, hl:0, sh:0, fade:0, temp:0, tint:0, sat:0,
+  grain:20, gsize:15, gcolor:0, halation:0, soft:0, ca:0, vig:20,
+  leak:0, leakPos:'tr', dust:0, scratch:0, border:'none', date:false, dateColor:'orange' };
+
+const GROUPS = [
+  { name:'แสง', items:[
+    { k:'exp', label:'รับแสง', min:-100, max:100 },
+    { k:'con', label:'คอนทราสต์', min:-100, max:100 },
+    { k:'hl', label:'ไฮไลต์', min:-100, max:100 },
+    { k:'sh', label:'เงา', min:-100, max:100 },
+    { k:'fade', label:'ซีดด้าน (Fade)', min:0, max:100 },
+  ]},
+  { name:'สี', items:[
+    { k:'intensity', label:'ความเข้มฟิล์ม', min:0, max:100 },
+    { k:'temp', label:'อุณหภูมิสี', min:-100, max:100 },
+    { k:'tint', label:'เขียว ↔ ม่วง', min:-100, max:100 },
+    { k:'sat', label:'ความสดสี', min:-100, max:100 },
+  ]},
+  { name:'เนื้อฟิล์ม', items:[
+    { k:'grain', label:'เกรน', min:0, max:100 },
+    { k:'gsize', label:'ขนาดเกรน', min:10, max:40, fmt:v => (v/10).toFixed(1) },
+    { k:'gcolor', label:'เกรนสี', min:0, max:100 },
+    { k:'halation', label:'แสงฟุ้งแดง', min:0, max:100 },
+    { k:'soft', label:'ความนุ่มเลนส์', min:0, max:100 },
+    { k:'ca', label:'สีเหลื่อมขอบ', min:0, max:100 },
+    { k:'vig', label:'ขอบมืด', min:0, max:100 },
+  ]},
+  { name:'เอฟเฟกต์', items:[
+    { k:'leak', label:'แสงรั่ว', min:0, max:100 },
+    { k:'leakPos', label:'ตำแหน่งแสงรั่ว', type:'select', opts:[['tr','มุมขวาบน'],['tl','มุมซ้ายบน'],['br','มุมขวาล่าง'],['bl','มุมซ้ายล่าง'],['edge','แถบขอบซ้าย']] },
+    { k:'dust', label:'ฝุ่น', min:0, max:100 },
+    { k:'scratch', label:'รอยขีดข่วน', min:0, max:100 },
+    { type:'button', label:'สุ่มตำแหน่งฝุ่น/รอยใหม่', id:'reseed' },
+    { k:'border', label:'กรอบรูป', type:'select', opts:[['none','ไม่มี'],['white','ขอบขาว'],['film','ขอบฟิล์ม 35mm']] },
+    { k:'date', label:'ตัวเลขวันที่', type:'check' },
+    { k:'dateColor', label:'สีตัวเลข', type:'select', opts:[['orange','ส้ม'],['red','แดง'],['yellow','เหลือง']] },
+    { type:'date', label:'วันที่' },
+  ]},
+];
+
+const $ = id => document.getElementById(id);
+const state = Object.assign({}, DEFAULTS, { preset: PRESETS[1], seed: 12345 });
+let img = null, srcPrev = null, srcThumb = null;
+const view = $('view'), vctx = view.getContext('2d');
+let dateStr = new Date().toISOString().slice(0, 10);
+
+// =============== helpers ===============
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function free(c) { if (c) { c.width = 0; c.height = 0; } }
+function sstep(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(rnd) { return (rnd() + rnd() + rnd() + rnd() - 2) * 1.73; }
+function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); c.fill(); }
+function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.display = 'none', 1600); }
+
+// =============== tone curves ===============
+function filmLUT(p, P) {
+  const C = [];
+  for (let c = 0; c < 3; c++) {
+    const a = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let x = Math.pow(P[i], p.gam[c]);
+      const s = x * x * (3 - 2 * x);
+      x = Math.max(0, Math.min(1, x + (s - x) * p.con * 1.6));
+      a[i] = p.lift[c] + x * (p.gain[c] - p.lift[c]);
+    }
+    C.push(a);
+  }
+  return C;
+}
+function userLUT(st) {
+  const U = new Float32Array(1024);
+  const con = st.con / 100, hl = st.hl / 100, sh = st.sh / 100, f = st.fade / 100;
+  for (let i = 0; i < 1024; i++) {
+    let x = i / 1023;
+    const s = x * x * (3 - 2 * x);
+    x += (s - x) * con * 1.3;
+    x += hl * .22 * sstep(.45, 1, x);
+    x += sh * .22 * (1 - sstep(0, .55, x));
+    x = Math.max(0, Math.min(1, x));
+    U[i] = f * .25 + x * (1 - f * .31);
+  }
+  return U;
+}
+
+// =============== pass 1: color, tone, vignette, chromatic aberration ===============
+function colorPass(src, w, h, st, ctx) {
+  const out = ctx.createImageData(w, h), s = src.data, o = out.data;
+  const pr = st.preset.p;
+  const e = Math.pow(2, st.exp / 100);
+  const P = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { let x = i / 255 * e; if (x > .8) x = .8 + .2 * (1 - Math.exp(-(x - .8) / .2)); P[i] = x; }
+  const C = pr ? filmLUT(pr, P) : null;
+  const U = userLUT(st);
+  const k = st.intensity / 100, satU = 1 + st.sat / 100, temp = st.temp / 100, tint = st.tint / 100;
+  const vig = st.vig / 100 * .85;
+  const M = Math.max(w, h), cs = st.ca / 100 * M * .004;
+  const caX = cs * w / M, caY = cs * h / M;
+  const colN = new Float32Array(w);
+  for (let x = 0; x < w; x++) colN[x] = (x / w - .5) * 2;
+  const idx = v => v <= 0 ? 0 : v >= 1 ? 1023 : (v * 1023) | 0;
+  for (let y = 0; y < h; y++) {
+    const ny = (y / h - .5) * 2, ny2 = ny * ny;
+    const oy = Math.round(ny * caY);
+    const yr = Math.min(h - 1, Math.max(0, y + oy)), yb = Math.min(h - 1, Math.max(0, y - oy));
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      let iR = i, iB = i;
+      if (cs > 0) {
+        const ox = Math.round(colN[x] * caX);
+        iR = (yr * w + Math.min(w - 1, Math.max(0, x + ox))) * 4;
+        iB = (yb * w + Math.min(w - 1, Math.max(0, x - ox))) * 4;
+      }
+      const r0 = s[iR], g0 = s[i + 1], b0 = s[iB + 2];
+      const nr = P[r0], ng = P[g0], nb = P[b0];
+      let r, g, b;
+      if (pr) {
+        if (pr.bw) { const li = Math.round(.3 * r0 + .59 * g0 + .11 * b0); r = g = b = C[0][li]; }
+        else { r = C[0][r0]; g = C[1][g0]; b = C[2][b0]; }
+        const lum = .299 * r + .587 * g + .114 * b;
+        r = lum + (r - lum) * pr.sat; g = lum + (g - lum) * pr.sat; b = lum + (b - lum) * pr.sat;
+        const ws = (1 - lum) * (1 - lum), wh = lum * lum;
+        r += pr.sh[0] * ws + pr.hi[0] * wh; g += pr.sh[1] * ws + pr.hi[1] * wh; b += pr.sh[2] * ws + pr.hi[2] * wh;
+        r = nr + (r - nr) * k; g = ng + (g - ng) * k; b = nb + (b - nb) * k;
+      } else { r = nr; g = ng; b = nb; }
+      if (temp) { r += temp * .07; b -= temp * .08; }
+      if (tint) { g -= tint * .05; r += tint * .025; b += tint * .025; }
+      r = U[idx(r)]; g = U[idx(g)]; b = U[idx(b)];
+      if (satU !== 1) {
+        const l = .299 * r + .587 * g + .114 * b;
+        r = l + (r - l) * satU; g = l + (g - l) * satU; b = l + (b - l) * satU;
+      }
+      if (vig > 0) {
+        const d = (colN[x] * colN[x] + ny2) / 2;
+        const f = 1 - vig * d * (.6 + .4 * d);
+        r *= f; g *= f; b *= f;
+      }
+      o[i] = r <= 0 ? 0 : r >= 1 ? 255 : r * 255;
+      o[i + 1] = g <= 0 ? 0 : g >= 1 ? 255 : g * 255;
+      o[i + 2] = b <= 0 ? 0 : b >= 1 ? 255 : b * 255;
+      o[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+// =============== lens softness ===============
+function applySoft(cv, amt) {
+  const w = cv.width, h = cv.height, f = 1.6 + amt * 4;
+  const sm = mk(Math.max(2, Math.round(w / f)), Math.max(2, Math.round(h / f)));
+  const sx = sm.getContext('2d'); sx.imageSmoothingQuality = 'high'; sx.drawImage(cv, 0, 0, sm.width, sm.height);
+  const ctx = cv.getContext('2d');
+  ctx.save(); ctx.globalAlpha = Math.min(.85, amt * .9); ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sm, 0, 0, w, h); ctx.restore(); free(sm);
+}
+
+// =============== halation (red glow around highlights) ===============
+function applyHalation(cv, amt) {
+  const w = cv.width, h = cv.height;
+  const sw = Math.max(8, Math.round(w / 10)), sh = Math.max(8, Math.round(h / 10));
+  const a = mk(sw, sh), ax = a.getContext('2d');
+  ax.drawImage(cv, 0, 0, sw, sh);
+  const d = ax.getImageData(0, 0, sw, sh), p = d.data;
+  for (let i = 0; i < p.length; i += 4) {
+    const l = (.299 * p[i] + .587 * p[i + 1] + .114 * p[i + 2]) / 255;
+    const m = Math.max(0, (l - .68) / .32);
+    p[i] = 255 * m; p[i + 1] = 55 * m; p[i + 2] = 20 * m;
+  }
+  ax.putImageData(d, 0, 0);
+  const b = mk(Math.max(3, sw >> 2), Math.max(3, sh >> 2));
+  b.getContext('2d').drawImage(a, 0, 0, b.width, b.height);
+  ax.globalCompositeOperation = 'screen'; ax.drawImage(b, 0, 0, sw, sh);
+  const ctx = cv.getContext('2d');
+  ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = Math.min(1, amt * 1.1); ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(a, 0, 0, w, h); ctx.restore(); free(a); free(b);
+}
+
+// =============== grain ===============
+function noiseGrid(gw, gh) { const g = new Float32Array(gw * gh); for (let i = 0; i < g.length; i++) g[i] = gauss(Math.random); return g; }
+function applyGrain(cv, st, scale) {
+  const w = cv.width, h = cv.height, ctx = cv.getContext('2d');
+  const d = ctx.getImageData(0, 0, w, h), o = d.data;
+  const cell = Math.max(1, st.gsize / 10 * scale);
+  const gw = Math.ceil(w / cell) + 2, gh = Math.ceil(h / cell) + 2;
+  const mono = st.grain / 100 * .13 * (cell > 1.2 ? 1.25 : 1), col = st.gcolor / 100 * .09;
+  const N = noiseGrid(gw, gh);
+  const NR = col ? noiseGrid(gw, gh) : null, NG = col ? noiseGrid(gw, gh) : null, NB = col ? noiseGrid(gw, gh) : null;
+  const xi = new Int32Array(w), xf = new Float32Array(w);
+  for (let x = 0; x < w; x++) { const v = x / cell; xi[x] = v | 0; xf[x] = v - (v | 0); }
+  for (let y = 0; y < h; y++) {
+    const vy = y / cell, yi = vy | 0, fy = vy - yi, r0 = yi * gw, r1 = r0 + gw;
+    for (let x = 0; x < w; x++) {
+      const a = xi[x], fx = xf[x];
+      const i00 = r0 + a, i10 = i00 + 1, i01 = r1 + a, i11 = i01 + 1;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      const i = (y * w + x) * 4;
+      const lum = (.299 * o[i] + .587 * o[i + 1] + .114 * o[i + 2]) / 255;
+      const shape = 1 - Math.abs(lum - .5) * 1.1;
+      const n = (N[i00] * w00 + N[i10] * w10 + N[i01] * w01 + N[i11] * w11) * mono * shape * 255;
+      let r = o[i] + n, g = o[i + 1] + n, b = o[i + 2] + n;
+      if (col) {
+        const cf = col * shape * 255;
+        r += (NR[i00] * w00 + NR[i10] * w10 + NR[i01] * w01 + NR[i11] * w11) * cf;
+        g += (NG[i00] * w00 + NG[i10] * w10 + NG[i01] * w01 + NG[i11] * w11) * cf;
+        b += (NB[i00] * w00 + NB[i10] * w10 + NB[i01] * w01 + NB[i11] * w11) * cf;
+      }
+      o[i] = r; o[i + 1] = g; o[i + 2] = b;
+    }
+  }
+  ctx.putImageData(d, 0, 0);
+}
+
+// =============== light leak ===============
+function drawLeak(ctx, w, h, st) {
+  const a = st.leak / 100, R = Math.max(w, h);
+  ctx.save(); ctx.globalCompositeOperation = 'screen';
+  if (st.leakPos === 'edge') {
+    const g = ctx.createLinearGradient(0, 0, w * .45, 0);
+    g.addColorStop(0, `rgba(255,60,20,${.95 * a})`);
+    g.addColorStop(.25, `rgba(255,130,40,${.55 * a})`);
+    g.addColorStop(1, 'rgba(255,150,60,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  } else {
+    const pos = { tr:[1.02, .08], tl:[-.02, .08], br:[1.02, .92], bl:[-.02, .92] }[st.leakPos] || [1.02, .08];
+    const cx = w * pos[0], cy = h * pos[1];
+    let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * .75);
+    g.addColorStop(0, `rgba(255,70,20,${.85 * a})`);
+    g.addColorStop(.35, `rgba(255,140,40,${.45 * a})`);
+    g.addColorStop(1, 'rgba(255,160,60,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    const ox = w - cx, oy = h - cy;
+    g = ctx.createRadialGradient(ox, oy, 0, ox, oy, R * .35);
+    g.addColorStop(0, `rgba(255,190,90,${.35 * a})`);
+    g.addColorStop(1, 'rgba(255,190,90,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+  ctx.restore();
+}
+
+// =============== dust & scratches ===============
+function drawDust(ctx, w, h, st, scale) {
+  ctx.save();
+  if (st.dust > 0) {
+    const rnd = mulberry32(st.seed);
+    const n = Math.round(st.dust / 100 * 160);
+    for (let j = 0; j < n; j++) {
+      const x = rnd() * w, y = rnd() * h, r = (.4 + rnd() * rnd() * 2.4) * scale, light = rnd() < .65, al = .35 + rnd() * .5;
+      ctx.fillStyle = light ? `rgba(255,255,250,${al})` : `rgba(10,8,6,${al})`;
+      ctx.beginPath(); ctx.ellipse(x, y, r, r * (.6 + rnd() * .4), rnd() * 3, 0, Math.PI * 2); ctx.fill();
+    }
+    const rh = mulberry32(st.seed + 7);
+    const m = Math.round(st.dust / 100 * 6);
+    ctx.lineCap = 'round';
+    for (let j = 0; j < m; j++) {
+      const x = rh() * w, y = rh() * h, L = (12 + rh() * 30) * scale, light = rh() < .6;
+      ctx.strokeStyle = light ? 'rgba(255,255,250,.55)' : 'rgba(10,8,6,.55)';
+      ctx.lineWidth = .8 * scale;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + (rh() - .5) * L, y + (rh() - .5) * L, x + (rh() - .5) * L, y + (rh() - .5) * L, x + (rh() - .5) * L, y + (rh() - .5) * L);
+      ctx.stroke();
+    }
+  }
+  if (st.scratch > 0) {
+    const rs = mulberry32(st.seed + 13);
+    const n = 1 + Math.round(st.scratch / 100 * 6);
+    for (let j = 0; j < n; j++) {
+      let x = rs() * w; const y0 = rs() < .5 ? 0 : rs() * h * .5, y1 = y0 + h * (.3 + rs() * .7);
+      ctx.strokeStyle = `rgba(255,255,250,${(.2 + rs() * .35) * Math.min(1, st.scratch / 60)})`;
+      ctx.lineWidth = (.5 + rs() * .9) * scale;
+      ctx.beginPath(); ctx.moveTo(x, y0);
+      const steps = 8;
+      for (let s = 1; s <= steps; s++) { x += (rs() - .5) * 3 * scale; ctx.lineTo(x, y0 + (y1 - y0) * s / steps); }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// =============== date stamp ===============
+function drawDate(ctx, w, h, st) {
+  const v = (dateStr || new Date().toISOString().slice(0, 10)).split('-');
+  const text = `'${v[0].slice(2)} ${v[1]} ${v[2]}`;
+  const fs = Math.round(Math.min(w, h) * .055);
+  const col = { orange:['rgba(255,150,50,.92)', 'rgba(255,80,0,.95)'], red:['rgba(255,80,50,.92)', 'rgba(255,20,0,.95)'], yellow:['rgba(255,215,70,.92)', 'rgba(255,150,0,.9)'] }[st.dateColor] || ['rgba(255,150,50,.92)', 'rgba(255,80,0,.95)'];
+  ctx.save();
+  ctx.font = `bold ${fs}px "Courier New", Courier, monospace`;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.shadowColor = col[1]; ctx.shadowBlur = fs * .45; ctx.fillStyle = col[0];
+  ctx.fillText(text, w - fs * 1.1, h - fs * .9);
+  ctx.shadowBlur = 0; ctx.fillText(text, w - fs * 1.1, h - fs * .9);
+  ctx.restore();
+}
+
+// =============== borders ===============
+function rotate(cv, dir) {
+  const o = mk(cv.height, cv.width), c = o.getContext('2d');
+  if (dir > 0) { c.translate(cv.height, 0); c.rotate(Math.PI / 2); }
+  else { c.translate(0, cv.width); c.rotate(-Math.PI / 2); }
+  c.drawImage(cv, 0, 0); return o;
+}
+function filmBorder(cv) {
+  if (cv.height > cv.width) { const r = rotate(cv, 1); const b = filmBorder(r); free(r); const back = rotate(b, -1); free(b); return back; }
+  const w = cv.width, h = cv.height;
+  const pad = Math.round(h * .14), side = Math.round(h * .04);
+  const out = mk(w + side * 2, h + pad * 2), c = out.getContext('2d');
+  c.fillStyle = '#0b0a09'; c.fillRect(0, 0, out.width, out.height);
+  c.drawImage(cv, side, pad);
+  const hh = pad * .34, hw = hh * .72, gap = hw * 1.9;
+  c.fillStyle = '#e6e0d4';
+  for (let x = gap * .4; x < out.width - hw; x += gap) {
+    rrect(c, x, pad * .1, hw, hh, hw * .2);
+    rrect(c, x, out.height - pad * .1 - hh, hw, hh, hw * .2);
+  }
+  c.fillStyle = 'rgba(255,150,50,.9)';
+  c.font = `bold ${Math.round(pad * .2)}px "Courier New", monospace`; c.textBaseline = 'middle';
+  c.fillText('400 FILM', side + pad * .4, pad * .73);
+  c.fillText('▸ 12A', out.width * .55, pad * .73);
+  c.fillText('12', side + pad * .4, out.height - pad * .73);
+  c.fillText('▸ 13', out.width * .55, out.height - pad * .73);
+  return out;
+}
+function whiteBorder(cv) {
+  const pad = Math.round(Math.min(cv.width, cv.height) * .05);
+  const out = mk(cv.width + pad * 2, cv.height + pad * 2), c = out.getContext('2d');
+  c.fillStyle = '#f3efe7'; c.fillRect(0, 0, out.width, out.height); c.drawImage(cv, pad, pad);
+  return out;
+}
+
+// =============== full pipeline ===============
+function processImage(src, w, h, st) {
+  const scale = Math.max(w, h) / 1200;
+  let cv = mk(w, h); const ctx = cv.getContext('2d');
+  colorPass(src, w, h, st, ctx);
+  if (st.soft > 0) applySoft(cv, st.soft / 100);
+  if (st.halation > 0) applyHalation(cv, st.halation / 100);
+  if (st.grain > 0 || st.gcolor > 0) applyGrain(cv, st, scale);
+  if (st.leak > 0) drawLeak(ctx, w, h, st);
+  if (st.dust > 0 || st.scratch > 0) drawDust(ctx, w, h, st, Math.max(.3, scale));
+  if (st.date) drawDate(ctx, w, h, st);
+  if (st.border === 'film') { const b = filmBorder(cv); free(cv); cv = b; }
+  else if (st.border === 'white') { const b = whiteBorder(cv); free(cv); cv = b; }
+  return cv;
+}
+
+function sourceData(maxSide, maxArea) {
+  let w = img.naturalWidth, h = img.naturalHeight;
+  let sc = Math.min(1, maxSide / Math.max(w, h));
+  if (maxArea && w * h * sc * sc > maxArea) sc = Math.sqrt(maxArea / (w * h));
+  w = Math.max(1, Math.round(w * sc)); h = Math.max(1, Math.round(h * sc));
+  const c = mk(w, h), cx = c.getContext('2d');
+  cx.imageSmoothingQuality = 'high'; cx.drawImage(img, 0, 0, w, h);
+  const data = cx.getImageData(0, 0, w, h); free(c);
+  return { data, w, h };
+}
+
+// =============== rendering ===============
+let pending = false, comparing = false;
+function render() {
+  if (!srcPrev || pending) return;
+  pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    if (comparing) return;
+    const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, state);
+    view.width = res.width; view.height = res.height;
+    vctx.drawImage(res, 0, 0); free(res);
+  });
+}
+
+// =============== presets (built-in + my recipes) ===============
+function loadCustom() { try { return JSON.parse(localStorage.getItem('filmtone-recipes') || '[]'); } catch (e) { return []; } }
+function saveCustom(list) { try { localStorage.setItem('filmtone-recipes', JSON.stringify(list)); return true; } catch (e) { return false; } }
+function allPresets() {
+  return PRESETS.concat(loadCustom().map(c => ({
+    id: c.id, name: c.name, custom: true, d: c.vals,
+    p: (PRESETS.find(p => p.id === c.base) || PRESETS[0]).p, base: c.base,
+  })));
+}
+
+function buildPresetStrip() {
+  const strip = $('presets'); strip.innerHTML = '';
+  allPresets().forEach(pr => {
+    const el = document.createElement('div');
+    el.className = 'preset' + (pr.id === state.preset.id ? ' on' : '');
+    el.dataset.id = pr.id;
+    if (srcThumb) {
+      const st = Object.assign({}, DEFAULTS, pr.d, { preset: pr, seed: state.seed, date: false, border: 'none' });
+      st.grain *= .6;
+      const res = processImage(srcThumb.data, srcThumb.w, srcThumb.h, st);
+      const c = mk(res.width, res.height); c.getContext('2d').drawImage(res, 0, 0); free(res);
+      el.appendChild(c);
+    } else { const ph = document.createElement('div'); ph.className = 'ph'; el.appendChild(ph); }
+    const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = pr.name; el.appendChild(lab);
+    if (pr.custom) {
+      const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
+      del.onclick = ev => { ev.stopPropagation(); saveCustom(loadCustom().filter(c => c.id !== pr.id)); if (state.preset.id === pr.id) state.preset = PRESETS[1]; buildPresetStrip(); };
+      el.appendChild(del);
+    }
+    el.onclick = () => selectPreset(pr);
+    strip.appendChild(el);
+  });
+  const add = document.createElement('div'); add.className = 'preset';
+  add.innerHTML = '<div class="ph">＋</div><div class="lab">บันทึกสูตร</div>';
+  add.onclick = saveRecipe;
+  strip.appendChild(add);
+}
+
+function saveRecipe() {
+  const list = loadCustom();
+  const vals = {}; Object.keys(DEFAULTS).forEach(k => vals[k] = state[k]);
+  const base = state.preset.custom ? state.preset.base : state.preset.id;
+  const item = { id: 'c' + Date.now(), name: 'สูตรของฉัน ' + (list.length + 1), base, vals };
+  list.push(item);
+  if (!saveCustom(list)) { toast('บันทึกสูตรไม่ได้ในหน้านี้'); return; }
+  state.preset = allPresets().find(p => p.id === item.id);
+  buildPresetStrip(); toast('บันทึกสูตรแล้ว');
+}
+
+function selectPreset(pr) {
+  Object.assign(state, DEFAULTS, pr.d);
+  state.preset = pr;
+  syncUI();
+  document.querySelectorAll('.preset').forEach(el => el.classList.toggle('on', el.dataset.id === pr.id));
+  render();
+}
+
+// =============== controls UI ===============
+const controls = {};
+function buildControls() {
+  const tabs = $('tabs'), panels = $('panels');
+  GROUPS.forEach((g, gi) => {
+    const t = document.createElement('button'); t.className = 'tab' + (gi === 0 ? ' on' : ''); t.textContent = g.name;
+    const pn = document.createElement('div'); pn.className = 'panel' + (gi === 0 ? ' on' : '');
+    t.onclick = () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
+      t.classList.add('on'); pn.classList.add('on');
+    };
+    tabs.appendChild(t);
+    g.items.forEach(it => {
+      const row = document.createElement('div'); row.className = 'row';
+      const lab = document.createElement('label'); lab.textContent = it.label; row.appendChild(lab);
+      if (it.type === 'button') {
+        row.removeChild(lab);
+        const b = document.createElement('button'); b.className = 'linkbtn'; b.textContent = it.label;
+        b.onclick = () => { state.seed = (Math.random() * 1e9) | 0; render(); };
+        row.appendChild(b);
+      } else if (it.type === 'select') {
+        const s = document.createElement('select');
+        it.opts.forEach(([v, n]) => { const o = document.createElement('option'); o.value = v; o.textContent = n; s.appendChild(o); });
+        s.onchange = () => { state[it.k] = s.value; render(); };
+        row.appendChild(s); controls[it.k] = { el: s, it };
+      } else if (it.type === 'check') {
+        const c = document.createElement('input'); c.type = 'checkbox';
+        c.onchange = () => { state[it.k] = c.checked; render(); };
+        row.appendChild(c); controls[it.k] = { el: c, it };
+      } else if (it.type === 'date') {
+        const d = document.createElement('input'); d.type = 'date'; d.value = dateStr;
+        d.onchange = () => { dateStr = d.value; if (state.date) render(); };
+        row.appendChild(d);
+      } else {
+        const r = document.createElement('input'); r.type = 'range'; r.min = it.min; r.max = it.max; r.step = 1;
+        const v = document.createElement('span'); v.className = 'v';
+        r.oninput = () => { state[it.k] = +r.value; v.textContent = it.fmt ? it.fmt(+r.value) : r.value; render(); };
+        lab.ondblclick = () => { const def = Object.assign({}, DEFAULTS, state.preset.d)[it.k]; state[it.k] = def; syncUI(); render(); };
+        row.appendChild(r); row.appendChild(v); controls[it.k] = { el: r, v, it };
+      }
+      pn.appendChild(row);
+    });
+    panels.appendChild(pn);
+  });
+  const reset = document.createElement('button'); reset.className = 'linkbtn'; reset.textContent = 'รีเซ็ต';
+  reset.onclick = () => selectPreset(state.preset);
+  tabs.appendChild(reset);
+}
+function syncUI() {
+  Object.entries(controls).forEach(([k, c]) => {
+    if (c.it.type === 'check') c.el.checked = !!state[k];
+    else c.el.value = state[k];
+    if (c.v) c.v.textContent = c.it.fmt ? c.it.fmt(state[k]) : state[k];
+  });
+}
+
+// =============== events ===============
+$('pick').onclick = () => $('file').click();
+$('empty').onclick = () => $('file').click();
+
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image(); im.src = URL.createObjectURL(f);
+  try { await im.decode(); } catch (err) { toast('เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'); return; }
+  img = im;
+  srcPrev = sourceData(1200);
+  srcThumb = sourceData(150);
+  view.style.display = 'block'; $('empty').style.display = 'none';
+  $('save').disabled = false;
+  buildPresetStrip();
+  render();
+  e.target.value = '';
+});
+
+function showOriginal(on) {
+  if (!srcPrev) return;
+  comparing = on;
+  $('badge').style.display = on ? 'block' : 'none';
+  if (on) { view.width = srcPrev.w; view.height = srcPrev.h; vctx.putImageData(srcPrev.data, 0, 0); }
+  else render();
+}
+view.addEventListener('pointerdown', () => showOriginal(true));
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => view.addEventListener(ev, () => { if (comparing) showOriginal(false); }));
+view.addEventListener('contextmenu', e => e.preventDefault());
+
+$('save').onclick = () => {
+  if (!img) return;
+  $('busy').style.display = 'flex';
+  setTimeout(async () => {
+    let c = null;
+    try {
+      const src = sourceData(4096, 12500000);
+      c = processImage(src.data, src.w, src.h, state);
+      const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.93));
+      free(c);
+      const file = new File([blob], 'film_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+      $('busy').style.display = 'none';
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+      $('resultImg').src = URL.createObjectURL(blob);
+      $('result').style.display = 'flex';
+    } catch (err) {
+      free(c);
+      $('busy').style.display = 'none';
+      toast('บันทึกไม่สำเร็จ: ' + err.message);
+    }
+  }, 50);
+};
+$('closeResult').onclick = () => { $('result').style.display = 'none'; };
+
+buildControls();
+selectPreset(PRESETS[1]);
+buildPresetStrip();
+
+try {
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+} catch (e) {}
+</script>
+</body>
+</html>
