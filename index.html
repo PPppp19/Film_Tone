@@ -135,9 +135,27 @@
   .swatches button { width:28px; height:28px; border-radius:50%; border:2px solid rgba(255,255,255,.25); }
   .swatches button.on { border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
   .stNote { font-size:12px; color:var(--muted); padding:4px 18px 2px; }
+  #stTabs { gap:6px; padding-left:10px; padding-right:10px; }
+  #stTabs button { font-size:13px; padding:10px 2px; white-space:nowrap; }
   .toolbar button.on { color:var(--accent); }
   .moreList .item { font-size:15px; }
   input[type=date], input[type=number] { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:7px 10px; font:inherit; font-size:14px; }
+
+  /* ---------- editor fullscreen + landscape ---------- */
+  body.edfs #sEditor .panelWrap, body.edfs #sEditor .toolbar, body.edfs #toExport { display:none !important; }
+  body.edfs #sEditor { background:#000; }
+  body.edfs #sEditor .stage { padding-bottom:env(safe-area-inset-bottom); }
+  .stage { overflow:hidden; }
+  .stage.cropping { padding:20px 22px 28px; }
+  #view { transform-origin:center center; will-change:transform; }
+  @media (orientation: landscape) and (min-width: 600px) {
+    #sEditor.on { display:grid; grid-template-columns:minmax(0,1fr) minmax(300px,38%); grid-template-rows:auto minmax(0,1fr) auto; }
+    #sEditor .topbar { grid-column:1 / 3; }
+    #sEditor .stage { grid-column:1; grid-row:2 / 4; padding:4px 8px calc(8px + env(safe-area-inset-bottom)); }
+    #sEditor .panelWrap { grid-column:2; grid-row:2; max-height:none; overflow-y:auto; border-left:1px solid var(--line); }
+    #sEditor .toolbar { grid-column:2; grid-row:3; border-left:1px solid var(--line); }
+    body.edfs #sEditor.on { grid-template-columns:minmax(0,1fr) 0; }
+  }
 
   /* ---------- export ---------- */
   .exPrev { margin:6px 16px 4px; border-radius:16px; overflow:hidden; background:#0d0b12; display:flex; align-items:center; justify-content:center; height:30vh; }
@@ -155,20 +173,10 @@
   .gradBtn { display:flex; align-items:center; justify-content:center; gap:10px; margin:18px 16px calc(16px + env(safe-area-inset-bottom)); padding:16px; border-radius:30px; background:var(--grad); color:#fff; font-size:17px; font-weight:700; width:calc(100% - 32px); }
   #customRow { display:none; padding:10px 16px 0; align-items:center; gap:10px; font-size:14px; color:var(--muted); }
 
-  /* ---------- jigsaw ---------- */
-  #jgArea { position:relative; flex:1; overflow:hidden; touch-action:none; margin-bottom:env(safe-area-inset-bottom); }
-  #jgBoard { position:absolute; border-radius:4px; background:#0d0b12; box-shadow:inset 0 0 0 1px #3a3450; }
-  #jgBoard canvas { width:100%; height:100%; display:block; opacity:0; transition:opacity .3s; }
-  #jgBoard.hint canvas { opacity:.22; }
-  .jpc { position:absolute; touch-action:none; cursor:grab; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
-  .jpc.placed { filter:none; cursor:default; }
-  #jgWin { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(10,8,16,.55); z-index:50; }
-  #jgWin .box { background:var(--panel); border-radius:20px; padding:22px 24px; text-align:center; width:min(86%,340px); }
-  #jgWin .big { font-size:48px; }
-  #jgWin .row { display:flex; gap:10px; justify-content:center; margin-top:16px; }
-  #jgWinText { font-size:16px; line-height:1.6; }
-  .petal { position:absolute; top:-30px; font-size:22px; pointer-events:none; animation:fall linear forwards; z-index:49; }
-  @keyframes fall { to { transform:translateY(110vh) rotate(540deg); } }
+  /* ---------- jigsaw picker ---------- */
+  #jgArea { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:6px 12px; touch-action:manipulation; }
+  #jgCanvas { max-width:100%; max-height:100%; display:block; border-radius:6px; }
+  #jgAdd:disabled { opacity:.4; }
   .fontChip { font-size:16px !important; }
 
   /* ---------- overlays ---------- */
@@ -267,13 +275,14 @@
     <span class="title" id="edTitle"></span>
     <button class="ib" id="undo"><span data-i="undo"></span></button>
     <button class="ib" id="redo"><span data-i="redo"></span></button>
+    <button class="ib" id="fsBtn" title="เต็มจอ"><span data-i="expand"></span></button>
     <button class="pill" id="compare">เปรียบเทียบ</button>
     <button class="pill acc" id="toExport">ส่งออก</button>
   </div>
   <div class="stage" id="stage">
     <canvas id="view"></canvas>
     <div class="badge" id="badge">ต้นฉบับ</div>
-    <div class="cropHint" id="cropHint">ลากรูปเพื่อเลื่อนตำแหน่ง</div>
+    <div class="cropHint" id="cropHint">ลากมุม/ขอบเพื่อปรับขนาด · 2 นิ้วเพื่อย่อและหมุนเอียง</div>
   </div>
   <div class="panelWrap">
     <!-- filters -->
@@ -295,7 +304,7 @@
     <!-- crop -->
     <div class="panel" id="pCrop">
       <div class="chips" id="ratios"></div>
-      <div class="srow"><span class="ic" data-i="zoom"></span><label>ซูม</label><input type="range" id="cropZoom" min="100" max="300"><span class="v" id="cropZoomV"></span></div>
+      <div class="srow"><span class="ic" data-i="rotr"></span><label>ปรับเอียง</label><input type="range" id="cropAngle" min="-450" max="450" step="1"><span class="v" id="cropAngleV" style="width:46px"></span></div>
       <div class="actRow">
         <button id="rotL"><span data-i="rotl"></span>หมุนซ้าย</button>
         <button id="rotR"><span data-i="rotr"></span>หมุนขวา</button>
@@ -319,7 +328,7 @@
         <button class="item" id="mSave"><span data-i="star"></span>บันทึกเป็นพรีเซ็ต</button>
         <button class="item" id="mCopy"><span data-i="copy"></span>คัดลอกการปรับแต่ง</button>
         <button class="item" id="mPaste"><span data-i="paste"></span>วางการปรับแต่ง</button>
-        <button class="item" id="mJigsaw"><span data-i="puzzle"></span>เล่นจิ๊กซอว์จากรูปนี้</button>
+        <button class="item" id="mJigsaw"><span data-i="puzzle"></span>ตัดรูปเป็นสติกเกอร์จิ๊กซอว์</button>
         <button class="item" id="mReseed"><span data-i="dice"></span>สุ่มเกรน ฝุ่น และรอยขีดใหม่</button>
         <button class="item" id="mResetAll"><span data-i="reset"></span>รีเซ็ตทั้งหมด</button>
         <button class="item" id="mReplace"><span data-i="image"></span>เปลี่ยนรูป</button>
@@ -366,21 +375,22 @@
   </div>
 </section>
 
-<!-- ================= JIGSAW GAME ================= -->
+<!-- ================= JIGSAW PIECE PICKER ================= -->
 <section class="screen" id="sJigsaw">
   <div class="topbar">
     <button class="ib" id="jgBack"><span data-i="back"></span></button>
-    <span class="title" style="text-align:left;padding-left:4px">จิ๊กซอว์ <span id="jgStat" style="font-size:13px;color:var(--muted);font-weight:400"></span></span>
-    <button class="pill" id="jgHint">ภาพใบ้</button>
+    <span class="title">เลือกชิ้นจิ๊กซอว์</span>
+    <button class="pill" id="jgAll">เลือกทั้งหมด</button>
   </div>
   <div class="chips" id="jgSizes" style="justify-content:center"></div>
-  <div id="jgArea"></div>
-  <div id="jgWin"><div class="box"><div class="big">🎉</div><div id="jgWinText"></div>
-    <div class="row"><button class="pill" id="jgAgain">เล่นอีกครั้ง</button><button class="pill acc" id="jgDone">กลับไปแต่งรูป</button></div></div></div>
+  <div id="jgArea"><canvas id="jgCanvas"></canvas></div>
+  <div class="stNote" style="text-align:center">แตะชิ้นที่ต้องการ แล้วกดเพิ่มเป็นสติกเกอร์</div>
+  <button class="gradBtn" id="jgAdd" style="margin-top:8px">เพิ่มเป็นสติกเกอร์</button>
 </section>
 
 <input id="file" type="file" accept="image/*" hidden>
 <input id="pipFile" type="file" accept="image/*" hidden>
+<input id="jgFile" type="file" accept="image/*" hidden>
 <div id="toast"></div>
 <div id="busy">กำลังล้างฟิล์ม…</div>
 <div id="result">
@@ -1205,6 +1215,40 @@ addFrame = function (cv, type, seed) {
   return _addFrameBase2(cv, type, seed);
 };
 
+// =============== jigsaw piece stickers (a piece cut from a photo) ===============
+function jpieceDims(st, im, px) { return [px, px * (im.height / st.rows) / (im.width / st.cols)]; }
+function jpieceBox(st, px) {
+  const im = PHOTOS[st.ref]; if (!im) return [px * .6, px * .6];
+  const [pw, ph] = jpieceDims(st, im, px); return [pw * .62, ph * .62];
+}
+function drawJPiece(c, st, px) {
+  const im = PHOTOS[st.ref]; if (!im) return;
+  const [pw, ph] = jpieceDims(st, im, px), t = jigTabs(st.rows, st.cols, st.seed)(st.r, st.c);
+  const x0 = -pw / 2, y0 = -ph / 2;
+  if (st.shadow) {
+    c.save(); c.shadowColor = 'rgba(25,15,40,.45)'; c.shadowBlur = px * .12; c.shadowOffsetY = px * .05;
+    piecePath(c, x0, y0, pw, ph, t); c.fillStyle = '#222'; c.fill(); c.restore();
+  }
+  c.save(); piecePath(c, x0, y0, pw, ph, t); c.clip();
+  c.drawImage(im, x0 - st.c * pw, y0 - st.r * ph, pw * st.cols, ph * st.rows);
+  if (st.bevel) {
+    c.lineWidth = px * .07;
+    c.save(); c.translate(-px * .018, -px * .018); piecePath(c, x0, y0, pw, ph, t); c.strokeStyle = 'rgba(255,255,255,.45)'; c.stroke(); c.restore();
+    c.save(); c.translate(px * .018, px * .018); piecePath(c, x0, y0, pw, ph, t); c.strokeStyle = 'rgba(0,0,0,.28)'; c.stroke(); c.restore();
+  }
+  c.restore();
+  piecePath(c, x0, y0, pw, ph, t); c.lineWidth = Math.max(1, px * .012); c.strokeStyle = 'rgba(0,0,0,.3)'; c.stroke();
+}
+const _drawStickers2 = drawStickers;
+drawStickers = function (ctx, W, H, list) {
+  const M = Math.min(W, H);
+  list.forEach(st => {
+    if (st.kind !== 'jpiece') { _drawStickers2(ctx, W, H, [st]); return; }
+    ctx.save(); ctx.globalAlpha = st.op == null ? 1 : st.op; ctx.translate(st.x * W, st.y * H); ctx.rotate(st.rot || 0);
+    drawJPiece(ctx, st, st.s * M); ctx.restore();
+  });
+};
+
 // ======================================================================
 //                              APP (v2 UI)
 // ======================================================================
@@ -1295,6 +1339,7 @@ const IC = {
   sticker:'<path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v8l-6 6H6a2 2 0 01-2-2z"/><path d="M14 20v-4a2 2 0 012-2h4"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="14" cy="10" r=".8" fill="currentColor"/><path d="M9 13.5c1.4 1.2 3.6 1.2 5 0"/>',
   pip:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="11" y="11" width="8" height="7" rx="1.5" fill="currentColor" opacity=".35"/><path d="M3 15l4-4 3 3"/>',
   puzzle:'<path d="M4 8h3.5a2 2 0 114 0H15v3.5a2 2 0 110 4V19H11.5a2 2 0 10-4 0H4v-3.5a2 2 0 100-4z"/>',
+  expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', shrink:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z" fill="currentColor"/>',
 };
 function icon(n, s) { return `<svg viewBox="0 0 24 24" width="${s || 22}" height="${s || 22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${IC[n] || ''}</svg>`; }
@@ -1323,8 +1368,8 @@ function heroSVG() {
 // ---------- state ----------
 const state = Object.assign({}, DEFAULTS, { preset: PRESETS.find(p => p.id === 'sakura'), seed: 12345, stickers: [] });
 let selSticker = -1;
-const CROP0 = { aspect: 'orig', rot: 0, flip: false, zoom: 1, cx: .5, cy: .5 };
-let crop = Object.assign({}, CROP0);
+const crop0 = () => ({ aspect: 'free', rot: 0, flip: false, angle: 0, rect: { x: 0, y: 0, w: 1, h: 1 } });
+let crop = crop0(), cropBase = null;
 let img = null, imgBlob = null, srcPrev = null, srcThumb = null, projectId = null;
 const view = $('view'), vctx = view.getContext('2d');
 let comparing = false, curPanel = 'pFilter', curCat = 'all', adjTab = 0, clipboard = null;
@@ -1359,11 +1404,11 @@ const favs = () => ls.get('filmtone-favs', []);
 
 // ---------- snapshot / history ----------
 const PKEYS = Object.keys(DEFAULTS);
-function snapshot() { const s = {}; PKEYS.forEach(k => s[k] = state[k]); return { s, preset: state.preset.id, seed: state.seed, crop: Object.assign({}, crop), date: dateStr, stickers: JSON.parse(JSON.stringify(state.stickers || [])) }; }
+function snapshot() { const s = {}; PKEYS.forEach(k => s[k] = state[k]); return { s, preset: state.preset.id, seed: state.seed, crop: JSON.parse(JSON.stringify(crop)), date: dateStr, stickers: JSON.parse(JSON.stringify(state.stickers || [])) }; }
 function applySnap(sn) {
   Object.assign(state, DEFAULTS, sn.s); state.seed = sn.seed || state.seed;
   state.preset = allPresets().find(p => p.id === sn.preset) || PRESETS[0];
-  crop = Object.assign({}, CROP0, sn.crop || {}); if (sn.date) dateStr = sn.date;
+  crop = migrateCrop(sn.crop); if (sn.date) dateStr = sn.date;
   state.stickers = JSON.parse(JSON.stringify(sn.stickers || []));
   if (selSticker >= state.stickers.length) selSticker = -1;
 }
@@ -1383,35 +1428,53 @@ function stepHist(d) {
   syncAll(); render(); paintUndo(); scheduleSave();
 }
 $('undo').onclick = () => stepHist(-1); $('redo').onclick = () => stepHist(1);
+function setEditorFS(on) {
+  document.body.classList.toggle('edfs', on);
+  $('fsBtn').innerHTML = icon(on ? 'shrink' : 'expand', 22);
+  try {
+    if (on && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } catch (e) {}
+  setTimeout(render, 60);
+}
+$('fsBtn').onclick = () => setEditorFS(!document.body.classList.contains('edfs'));
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('edfs')) setEditorFS(false); });
 
 // ---------- crop + sources ----------
-function imgDims() { const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height; return crop.rot % 2 ? [h, w, w, h] : [w, h, w, h]; }
-function cropRect() {
-  const [W, H] = imgDims();
-  const ar = crop.aspect === 'orig' ? W / H : crop.aspect;
-  let cw, ch; if (W / H > ar) { ch = H; cw = H * ar; } else { cw = W; ch = W / ar; }
-  cw /= crop.zoom; ch /= crop.zoom;
-  let x = crop.cx * W - cw / 2, y = crop.cy * H - ch / 2;
-  x = Math.max(0, Math.min(W - cw, x)); y = Math.max(0, Math.min(H - ch, y));
-  crop.cx = (x + cw / 2) / W; crop.cy = (y + ch / 2) / H;
-  return { x, y, w: cw, h: ch, W, H };
+// crop = 90° rotation + flip + straighten angle, then a rectangle (0..1) inside the straightened frame
+function frameDims(rot = crop.rot) { const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height; return rot % 2 ? [h, w, w, h] : [w, h, w, h]; }
+function coverScale(W, H, a) { const c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a)); return Math.max(c + s * H / W, c + s * W / H); }
+function migrateCrop(c) {
+  const out = crop0(); if (!c) return out;
+  if (c.rect) return Object.assign(out, c, { rect: Object.assign({}, c.rect) });
+  out.rot = c.rot || 0; out.flip = !!c.flip; out.aspect = c.aspect == null ? 'orig' : c.aspect;
+  if (img) {
+    const [W, H] = frameDims(out.rot), ar = out.aspect === 'orig' ? W / H : out.aspect, z = c.zoom || 1;
+    let cw, ch; if (W / H > ar) { ch = H; cw = H * ar; } else { cw = W; ch = W / ar; } cw /= z; ch /= z;
+    const x = Math.max(0, Math.min(W - cw, (c.cx ?? .5) * W - cw / 2)), y = Math.max(0, Math.min(H - ch, (c.cy ?? .5) * H - ch / 2));
+    out.rect = { x: x / W, y: y / H, w: cw / W, h: ch / H };
+  }
+  return out;
 }
-function sourceData(maxSide, maxArea) {
-  const r = cropRect(), [, , iw, ih] = imgDims();
+function cropRect() { const [W, H] = frameDims(), r = crop.rect; return { x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H, W, H }; }
+function sourceData(maxSide, maxArea, full) {
+  const [W, H, iw, ih] = frameDims(), r = full ? { x: 0, y: 0, w: W, h: H } : cropRect();
   let sc = Math.min(1, maxSide / Math.max(r.w, r.h));
   if (maxArea && r.w * r.h * sc * sc > maxArea) sc = Math.sqrt(maxArea / (r.w * r.h));
   const w = Math.max(1, Math.round(r.w * sc)), h = Math.max(1, Math.round(r.h * sc));
   const c = mk(w, h), x = c.getContext('2d');
   x.imageSmoothingQuality = 'high';
-  x.scale(w / r.w, h / r.h); x.translate(-r.x, -r.y);
-  x.translate(r.W / 2, r.H / 2); x.rotate(crop.rot * Math.PI / 2); if (crop.flip) x.scale(-1, 1);
+  x.scale(w / r.w, h / r.h); x.translate(-r.x, -r.y); x.translate(W / 2, H / 2);
+  const a = (crop.angle || 0) * Math.PI / 180;
+  if (a) { x.rotate(a); const cs = coverScale(W, H, a); x.scale(cs, cs); }
+  x.rotate(crop.rot * Math.PI / 2); if (crop.flip) x.scale(-1, 1);
   x.drawImage(img, -iw / 2, -ih / 2);
   const data = x.getImageData(0, 0, w, h); free(c);
   return { data, w, h };
 }
 function rebuildSources(thumbs) {
   if (!img) return;
-  srcPrev = sourceData(1200);
+  srcPrev = sourceData(1200, 0, curPanel === 'pCrop');
   if (thumbs) { srcThumb = sourceData(170); buildThumbs(); }
 }
 
@@ -1423,6 +1486,10 @@ function render() {
   if (missingFonts(state.stickers).length) loadFonts(state.stickers).then(() => render());
   requestAnimationFrame(() => {
     pending = false; if (comparing) return;
+    if (curPanel === 'pCrop') {
+      const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, Object.assign({}, state, { border: 'none', stickers: [], date: false }));
+      if (cropBase) free(cropBase); cropBase = res; drawCropView(); return;
+    }
     const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, state);
     view.width = res.width; view.height = res.height; vctx.drawImage(res, 0, 0); free(res);
     if (curPanel === 'pSticker' && selSticker >= 0) drawSelection();
@@ -1436,28 +1503,128 @@ const cmp = $('compare');
 cmp.addEventListener('pointerdown', e => { e.preventDefault(); showOriginal(true); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => cmp.addEventListener(ev, () => { if (comparing) showOriginal(false); }));
 
-// stage: hold to compare, or drag to move crop
-let drag = null;
-$('stage').addEventListener('pointerdown', e => {
+// ---------- stage gestures: hold = original, pinch = zoom view, drag = pan; crop & sticker modes have their own ----------
+const vz = { z: 1, tx: 0, ty: 0 };
+function applyVZ() { view.style.transform = (vz.z === 1 && !vz.tx && !vz.ty) ? '' : `translate(${vz.tx}px,${vz.ty}px) scale(${vz.z})`; }
+function resetVZ() { vz.z = 1; vz.tx = 0; vz.ty = 0; view.style.transition = 'transform .2s'; applyVZ(); setTimeout(() => view.style.transition = '', 220); }
+const sp = new Map(); let sg = null, lastTap = 0;
+function twoInfo() { const [a, b] = [...sp.values()]; return { d: Math.hypot(b.x - a.x, b.y - a.y) || 1, ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; }
+function startViewPinch() { const t = twoInfo(); sg = { mode: 'vpinch', d0: t.d, z0: vz.z, mx0: t.mx, my0: t.my, tx0: vz.tx, ty0: vz.ty }; }
+const stageEl = $('stage');
+stageEl.addEventListener('pointerdown', e => {
   if (!srcPrev) return;
-  if (curPanel === 'pSticker') { stickerDown(e); return; }
-  if (curPanel === 'pCrop') { drag = { x: e.clientX, y: e.clientY }; $('stage').setPointerCapture(e.pointerId); }
-  else showOriginal(true);
+  sp.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { stageEl.setPointerCapture(e.pointerId); } catch (err) {}
+  if (curPanel === 'pCrop') { cropDown(e); return; }
+  if (curPanel === 'pSticker') {
+    if (sp.size === 2 && selSticker < 0) { startViewPinch(); return; }
+    stickerDown(e);
+    if (sp.size === 1 && !gest && vz.z > 1) sg = { mode: 'pan', x: e.clientX, y: e.clientY, tx: vz.tx, ty: vz.ty };
+    return;
+  }
+  if (sp.size === 1) {
+    const now = Date.now(); if (now - lastTap < 300) { lastTap = 0; resetVZ(); sg = null; return; } lastTap = now;
+    if (vz.z > 1) sg = { mode: 'pan', x: e.clientX, y: e.clientY, tx: vz.tx, ty: vz.ty };
+    else { sg = { mode: 'hold' }; showOriginal(true); }
+  } else if (sp.size === 2) { if (comparing) showOriginal(false); startViewPinch(); }
 });
-$('stage').addEventListener('pointermove', e => {
-  if (curPanel === 'pSticker') { stickerMove(e); return; }
-  if (!drag) return;
-  const r = cropRect(), rect = view.getBoundingClientRect();
-  crop.cx -= (e.clientX - drag.x) / rect.width * (r.w / r.W);
-  crop.cy -= (e.clientY - drag.y) / rect.height * (r.h / r.H);
-  drag = { x: e.clientX, y: e.clientY };
-  if (!drag.raf) drag.raf = requestAnimationFrame(() => { if (drag) drag.raf = 0; rebuildSources(false); render(); });
+stageEl.addEventListener('pointermove', e => {
+  if (!sp.has(e.pointerId)) return; sp.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (curPanel === 'pCrop') { cropMove(e); return; }
+  if (sg && sg.mode === 'pan' && sp.size === 1) { vz.tx = sg.tx + e.clientX - sg.x; vz.ty = sg.ty + e.clientY - sg.y; applyVZ(); return; }
+  if (sg && sg.mode === 'vpinch' && sp.size === 2) {
+    const t = twoInfo(); vz.z = Math.max(1, Math.min(8, sg.z0 * t.d / sg.d0));
+    vz.tx = sg.tx0 + (t.mx - sg.mx0); vz.ty = sg.ty0 + (t.my - sg.my0); applyVZ(); return;
+  }
+  if (curPanel === 'pSticker') stickerMove(e);
 });
-['pointerup', 'pointercancel'].forEach(ev => $('stage').addEventListener(ev, e => {
-  if (curPanel === 'pSticker') { stickerUp(e); return; }
-  if (drag) { drag = null; rebuildSources(true); render(); pushHist(); }
-  else if (comparing) showOriginal(false);
+['pointerup', 'pointercancel'].forEach(ev => stageEl.addEventListener(ev, e => {
+  sp.delete(e.pointerId);
+  if (curPanel === 'pCrop') { cropUp(e); return; }
+  if (curPanel === 'pSticker' && !(sg && (sg.mode === 'vpinch' || sg.mode === 'pan'))) stickerUp(e);
+  if (sg && sg.mode === 'hold') showOriginal(false);
+  if (!sp.size) { sg = null; if (vz.z <= 1.03) resetVZ(); }
+  else if (sg && sg.mode === 'vpinch' && sp.size === 1) { const q = [...sp.values()][0]; sg = { mode: 'pan', x: q.x, y: q.y, tx: vz.tx, ty: vz.ty }; }
 }));
+
+// ---------- crop interaction ----------
+let cg = null, cropRaf = 0;
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function lockedArN() { if (crop.aspect === 'free') return 0; const [W, H] = frameDims(), ar = crop.aspect === 'orig' ? W / H : crop.aspect; return ar * H / W; }
+function cropNorm(e) { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, r]; }
+function scheduleCropRebuild() { if (cropRaf) return; cropRaf = requestAnimationFrame(() => { cropRaf = 0; srcPrev = sourceData(1200, 0, true); render(); }); }
+function drawCropView() { if (!cropBase) return; view.width = cropBase.width; view.height = cropBase.height; vctx.drawImage(cropBase, 0, 0); drawCropOverlay(); }
+function drawCropOverlay() {
+  const W = view.width, H = view.height, k = W / Math.max(1, view.clientWidth), R = crop.rect;
+  const x = R.x * W, y = R.y * H, w = R.w * W, h = R.h * H;
+  vctx.save();
+  vctx.fillStyle = 'rgba(8,6,14,.58)'; vctx.beginPath(); vctx.rect(0, 0, W, H); vctx.rect(x, y, w, h); vctx.fill('evenodd');
+  vctx.strokeStyle = 'rgba(255,255,255,.35)'; vctx.lineWidth = k;
+  for (let i = 1; i < 3; i++) { vctx.beginPath(); vctx.moveTo(x + w * i / 3, y); vctx.lineTo(x + w * i / 3, y + h); vctx.moveTo(x, y + h * i / 3); vctx.lineTo(x + w, y + h * i / 3); vctx.stroke(); }
+  vctx.strokeStyle = 'rgba(255,255,255,.95)'; vctx.lineWidth = 1.5 * k; vctx.strokeRect(x, y, w, h);
+  const L = Math.min(24 * k, w / 3, h / 3), t = 4.5 * k; vctx.fillStyle = '#fff';
+  vctx.shadowColor = 'rgba(0,0,0,.5)'; vctx.shadowBlur = 3 * k;
+  // corner brackets drawn inside the box so they never get cut off at the photo edge
+  vctx.fillRect(x, y, L, t); vctx.fillRect(x, y, t, L);
+  vctx.fillRect(x + w - L, y, L, t); vctx.fillRect(x + w - t, y, t, L);
+  vctx.fillRect(x, y + h - t, L, t); vctx.fillRect(x, y + h - L, t, L);
+  vctx.fillRect(x + w - L, y + h - t, L, t); vctx.fillRect(x + w - t, y + h - L, t, L);
+  const m = Math.min(20 * k, w / 4, h / 4);
+  vctx.fillRect(x + w / 2 - m / 2, y, m, t); vctx.fillRect(x + w / 2 - m / 2, y + h - t, m, t);
+  vctx.fillRect(x, y + h / 2 - m / 2, t, m); vctx.fillRect(x + w - t, y + h / 2 - m / 2, t, m);
+  vctx.restore();
+}
+function cropDown(e) {
+  if (sp.size === 2) { const t = twoInfo(); cg = { mode: 'pinch', d0: t.d, a0: t.ang, rect0: Object.assign({}, crop.rect), ang0: crop.angle || 0 }; return; }
+  const [nx, ny, r] = cropNorm(e), R = crop.rect, tx = 28 / r.width, ty = 28 / r.height;
+  const inX = nx > R.x - tx && nx < R.x + R.w + tx, inY = ny > R.y - ty && ny < R.y + R.h + ty;
+  let h = '';
+  if (inX && inY) {
+    if (Math.abs(ny - R.y) < ty) h += 'n'; else if (Math.abs(ny - (R.y + R.h)) < ty) h += 's';
+    if (Math.abs(nx - R.x) < tx) h += 'w'; else if (Math.abs(nx - (R.x + R.w)) < tx) h += 'e';
+  }
+  if (!h && nx > R.x && nx < R.x + R.w && ny > R.y && ny < R.y + R.h) h = 'move';
+  cg = h ? { mode: h, x: nx, y: ny, rect0: Object.assign({}, R) } : null;
+}
+function scaleRect(r0, k) {
+  const arN = lockedArN(), cx = r0.x + r0.w / 2, cy = r0.y + r0.h / 2;
+  let w = r0.w * k, h = r0.h * k;
+  const over = Math.max(w, h * 1, w / 1, 1e-9); const f = Math.min(1, 1 / w, 1 / h); w *= f; h *= f;
+  if (w < .06 || h < .06) { const g = Math.max(.06 / w, .06 / h); w *= g; h *= g; }
+  if (arN) h = w / arN; if (h > 1) { h = 1; w = arN ? h * arN : w; }
+  crop.rect = { x: clampN(cx - w / 2, 0, 1 - w), y: clampN(cy - h / 2, 0, 1 - h), w, h };
+}
+function cropMove(e) {
+  if (!cg) return;
+  if (cg.mode === 'pinch') {
+    if (sp.size < 2) return;
+    const t = twoInfo(); scaleRect(cg.rect0, cg.d0 / t.d);
+    const a = clampN(cg.ang0 + (t.ang - cg.a0) * 180 / Math.PI, -45, 45);
+    if (Math.abs(a - crop.angle) > .05) { crop.angle = Math.round(a * 10) / 10; scheduleCropRebuild(); } else drawCropView();
+    syncAll(); return;
+  }
+  const [nx, ny] = cropNorm(e), dx = nx - cg.x, dy = ny - cg.y, r0 = cg.rect0, md = cg.mode;
+  let x = r0.x, y = r0.y, w = r0.w, h = r0.h;
+  if (md === 'move') { x = clampN(r0.x + dx, 0, 1 - w); y = clampN(r0.y + dy, 0, 1 - h); }
+  else {
+    let x1 = r0.x, y1 = r0.y, x2 = r0.x + r0.w, y2 = r0.y + r0.h; const MIN = .06;
+    if (md.includes('w')) x1 = clampN(x1 + dx, 0, x2 - MIN); if (md.includes('e')) x2 = clampN(x2 + dx, x1 + MIN, 1);
+    if (md.includes('n')) y1 = clampN(y1 + dy, 0, y2 - MIN); if (md.includes('s')) y2 = clampN(y2 + dy, y1 + MIN, 1);
+    x = x1; y = y1; w = x2 - x1; h = y2 - y1;
+    const arN = lockedArN();
+    if (arN) {
+      if (md === 'n' || md === 's') { const nw = h * arN; x = r0.x + (r0.w - nw) / 2; w = nw; }
+      else if (md === 'e' || md === 'w') { const nh = w / arN; y = r0.y + (r0.h - nh) / 2; h = nh; }
+      else { const nh = w / arN; y = md.includes('n') ? y2 - nh : y1; h = nh; }
+      if (x < -1e-6 || y < -1e-6 || x + w > 1 + 1e-6 || y + h > 1 + 1e-6) return;
+    }
+  }
+  crop.rect = { x, y, w, h }; drawCropView();
+}
+function cropUp() {
+  if (!cg) return;
+  if (!sp.size) { cg = null; pushHist(); }
+  else if (cg.mode === 'pinch' && sp.size === 1) cg = null;
+}
 view.addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------- filters panel ----------
@@ -1581,25 +1748,39 @@ function syncAll() {
   if ($('dateVal')) $('dateVal').value = dateStr;
   // crop UI
   document.querySelectorAll('#ratios .chip').forEach(b => b.classList.toggle('on', b.dataset.v === String(crop.aspect)));
-  $('cropZoom').value = Math.round(crop.zoom * 100); $('cropZoomV').textContent = crop.zoom.toFixed(1) + '×'; paintRange($('cropZoom'));
+  $('cropAngle').value = Math.round((crop.angle || 0) * 10); $('cropAngleV').textContent = (crop.angle || 0).toFixed(1) + '°'; paintRange($('cropAngle'));
 }
 $('intensity').oninput = () => { state.intensity = +$('intensity').value; $('intensityV').textContent = state.intensity; paintRange($('intensity')); render(); };
 $('intensity').onchange = () => pushHist();
 
 // ---------- crop panel ----------
-const RATIOS = [['orig', 'ต้นฉบับ'], [1, '1:1'], [4 / 5, '4:5'], [3 / 4, '3:4'], [4 / 3, '4:3'], [3 / 2, '3:2'], [16 / 9, '16:9'], [9 / 16, '9:16']];
+const RATIOS = [['free', 'อิสระ'], ['orig', 'ต้นฉบับ'], [1, '1:1'], [4 / 5, '4:5'], [3 / 4, '3:4'], [4 / 3, '4:3'], [3 / 2, '3:2'], [16 / 9, '16:9'], [9 / 16, '9:16']];
 RATIOS.forEach(([v, n]) => {
   const b = document.createElement('button'); b.className = 'chip box'; b.textContent = n; b.dataset.v = String(v);
-  b.onclick = () => { crop.aspect = v; crop.zoom = 1; cropChanged(); };
+  b.onclick = () => setAspect(v);
   $('ratios').appendChild(b);
 });
-function cropChanged() { rebuildSources(true); syncAll(); render(); pushHist(); }
-$('cropZoom').oninput = () => { crop.zoom = $('cropZoom').value / 100; $('cropZoomV').textContent = crop.zoom.toFixed(1) + '×'; paintRange($('cropZoom')); rebuildSources(false); render(); };
-$('cropZoom').onchange = () => cropChanged();
-$('rotL').onclick = () => { crop.rot = (crop.rot + 3) % 4; cropChanged(); };
-$('rotR').onclick = () => { crop.rot = (crop.rot + 1) % 4; cropChanged(); };
-$('flipH').onclick = () => { crop.flip = !crop.flip; cropChanged(); };
-$('cropReset').onclick = () => { crop = Object.assign({}, CROP0); cropChanged(); };
+function setAspect(v) {
+  crop.aspect = v;
+  const arN = lockedArN();
+  if (arN) {
+    const R = crop.rect, cx = R.x + R.w / 2, cy = R.y + R.h / 2;
+    let w, h; if (arN >= 1) { w = 1; h = 1 / arN; } else { h = 1; w = arN; }
+    crop.rect = { x: clampN(cx - w / 2, 0, 1 - w), y: clampN(cy - h / 2, 0, 1 - h), w, h };
+  }
+  syncAll(); drawCropView(); pushHist();
+}
+function cropChanged(resetRect) {
+  if (resetRect) { crop.rect = { x: 0, y: 0, w: 1, h: 1 }; if (crop.aspect !== 'free') { const a = crop.aspect; setAspect(a); } }
+  srcPrev = sourceData(1200, 0, curPanel === 'pCrop'); syncAll(); render(); pushHist();
+}
+$('cropAngle').oninput = () => { crop.angle = $('cropAngle').value / 10; $('cropAngleV').textContent = crop.angle.toFixed(1) + '°'; paintRange($('cropAngle')); scheduleCropRebuild(); };
+$('cropAngle').onchange = () => pushHist();
+$('cropAngleV').ondblclick = () => { crop.angle = 0; syncAll(); scheduleCropRebuild(); pushHist(); };
+$('rotL').onclick = () => { crop.rot = (crop.rot + 3) % 4; cropChanged(true); };
+$('rotR').onclick = () => { crop.rot = (crop.rot + 1) % 4; cropChanged(true); };
+$('flipH').onclick = () => { crop.flip = !crop.flip; cropChanged(false); };
+$('cropReset').onclick = () => { crop = crop0(); cropChanged(false); };
 
 // ---------- adjust actions / more ----------
 function savePreset() {
@@ -1623,83 +1804,98 @@ $('mSave').onclick = savePreset;
 $('mCopy').onclick = () => { copySettings(); ls.set('filmtone-clip', clipboard); };
 $('mPaste').onclick = pasteSettings;
 $('mReseed').onclick = () => { state.seed = (Math.random() * 1e9) | 0; render(); pushHist(); toast('สุ่มใหม่แล้ว'); };
-$('mResetAll').onclick = () => { crop = Object.assign({}, CROP0); rebuildSources(true); selectPreset(PRESETS[0]); };
+$('mResetAll').onclick = () => { crop = crop0(); rebuildSources(true); selectPreset(PRESETS[0]); };
 $('mReplace').onclick = () => { pickFor = 'replace'; $('file').click(); };
-$('mJigsaw').onclick = () => openJigsaw();
+$('mJigsaw').onclick = () => { showPanel('pSticker'); stTab = 4; buildStickers(); };
 
-// ---------- jigsaw game ----------
-let jg = null;
-function fmtT(ms) { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
-function openJigsaw() { if (!srcPrev) return; saveNow(); show('sJigsaw'); requestAnimationFrame(() => startJigsaw(ls.get('filmtone-jgn', 4))); }
-function jgStatus() { if (!jg) return; $('jgStat').textContent = `${jg.placed}/${jg.total} · ${fmtT(jg.t0 ? (jg.tEnd || Date.now()) - jg.t0 : 0)}`; }
-function startJigsaw(n) {
-  if (jg && jg.timer) clearInterval(jg.timer);
-  ls.set('filmtone-jgn', n);
+// ---------- jigsaw piece picker: cut a photo into pieces, pick pieces as stickers ----------
+let jp = null;  // { ref, canvas, n, seed, sel:Set }
+async function storePhoto(c) {
+  const ref = 'ph' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  PHOTOS[ref] = c;
+  try { const b = await new Promise(r => c.toBlob(r, 'image/jpeg', .9)); await tx('images', 'readwrite', s => s.put(b, projectId + ':' + ref)); } catch (e) {}
+  return ref;
+}
+function openPicker(canvas) {
+  jp = { canvas, ref: null, n: ls.get('filmtone-jpn', 4), seed: (Math.random() * 1e6) | 0, sel: new Set() };
+  show('sJigsaw'); requestAnimationFrame(drawPicker);
+}
+$('jgFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { openPicker(await photoCanvas(f)); } catch (err) { toast('เปิดรูปนี้ไม่ได้'); }
+});
+function useCurrentForPicker() {
+  if (!srcPrev) return;
+  const st = Object.assign({}, state, { border: 'none', stickers: [] });
+  openPicker(processImage(srcPrev.data, srcPrev.w, srcPrev.h, st));
+}
+function pickerGrid() { const c = jp.canvas; return jigGrid(c.width, c.height, jp.n * jp.n); }
+function drawPicker() {
+  if (!jp) return;
   const sz = $('jgSizes'); sz.innerHTML = '';
-  [3, 4, 5, 6, 7].forEach(k => { const b = document.createElement('button'); b.className = 'chip box' + (k === n ? ' on' : ''); b.textContent = `${k}×${k}`; b.onclick = () => startJigsaw(k); sz.appendChild(b); });
-  const area = $('jgArea'); area.innerHTML = ''; $('jgWin').style.display = 'none';
-  const AW = area.clientWidth, AH = area.clientHeight;
-  const gst = /^jigsaw/.test(state.border) ? Object.assign({}, state, { border: 'none' }) : state;
-  const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, gst), ar = res.width / res.height;
-  let bw = Math.min(AW - 24, AH * .56 * ar), bh = bw / ar;
-  const bx = (AW - bw) / 2, by = 8, dpr = Math.min(2, window.devicePixelRatio || 1);
-  const pic = mk(Math.round(bw * dpr), Math.round(bh * dpr)), px = pic.getContext('2d'); px.imageSmoothingQuality = 'high'; px.drawImage(res, 0, 0, pic.width, pic.height); free(res);
-  const board = document.createElement('div'); board.id = 'jgBoard';
-  Object.assign(board.style, { left: bx + 'px', top: by + 'px', width: bw + 'px', height: bh + 'px' });
-  const hint = mk(pic.width, pic.height); hint.getContext('2d').drawImage(pic, 0, 0); board.appendChild(hint); area.appendChild(board);
-  const [rows, cols] = jigGrid(bw, bh, n * n), pw = bw / cols, ph = bh / rows, tabs = jigTabs(rows, cols, (Math.random() * 1e6) | 0);
-  const mg = Math.max(pw, ph) * .3, cw = pw + mg * 2, ch = ph + mg * 2;
-  jg = { placed: 0, total: rows * cols, t0: 0, tEnd: 0, z: 10, n };
-  const trayTop = by + bh + 8, trayOK = AH - trayTop > ch * .7;
+  [3, 4, 5, 6].forEach(k => { const b = document.createElement('button'); b.className = 'chip box' + (k === jp.n ? ' on' : ''); b.textContent = `${k}×${k}`;
+    b.onclick = () => { jp.n = k; jp.sel.clear(); ls.set('filmtone-jpn', k); drawPicker(); }; sz.appendChild(b); });
+  const src = jp.canvas, area = $('jgArea'), cv = $('jgCanvas');
+  const maxW = area.clientWidth - 24, maxH = area.clientHeight - 12, sc = Math.min(maxW / src.width, maxH / src.height);
+  const dpr = Math.min(2, window.devicePixelRatio || 1), W = src.width * sc, H = src.height * sc;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const x = cv.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.drawImage(src, 0, 0, W, H);
+  const [rows, cols] = pickerGrid(), pw = W / cols, ph = H / rows, tabs = jigTabs(rows, cols, jp.seed);
+  const any = jp.sel.size > 0;
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const tx = bx + c * pw - mg, ty = by + r * ph - mg;
-    const cv = mk(Math.ceil(cw * dpr), Math.ceil(ch * dpr)), x = cv.getContext('2d');
-    x.scale(dpr, dpr); x.save(); piecePath(x, mg, mg, pw, ph, tabs(r, c)); x.clip();
-    x.drawImage(pic, mg - c * pw, mg - r * ph, bw, bh); x.restore();
-    piecePath(x, mg, mg, pw, ph, tabs(r, c)); x.lineWidth = 1.2; x.strokeStyle = 'rgba(255,255,255,.45)'; x.stroke();
-    cv.className = 'jpc'; cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
-    cv.dataset.tx = tx; cv.dataset.ty = ty;
-    const sx = 4 + Math.random() * Math.max(1, AW - cw - 8);
-    const sy = trayOK ? trayTop - mg * .5 + Math.random() * Math.max(1, AH - trayTop - ch + mg) : Math.random() * Math.max(1, AH - ch);
-    cv.style.left = sx + 'px'; cv.style.top = sy + 'px'; cv.style.zIndex = 10 + Math.floor(Math.random() * 5);
-    let drag = null;
-    cv.addEventListener('pointerdown', e => {
-      if (cv.classList.contains('placed')) return;
-      e.preventDefault(); cv.setPointerCapture(e.pointerId);
-      if (!jg.t0) { jg.t0 = Date.now(); jg.timer = setInterval(jgStatus, 1000); }
-      cv.style.zIndex = ++jg.z;
-      drag = { dx: e.clientX - parseFloat(cv.style.left), dy: e.clientY - parseFloat(cv.style.top) };
-    });
-    cv.addEventListener('pointermove', e => { if (!drag) return; cv.style.left = (e.clientX - drag.dx) + 'px'; cv.style.top = (e.clientY - drag.dy) + 'px'; });
-    const drop = () => {
-      if (!drag) return; drag = null;
-      const x0 = parseFloat(cv.style.left), y0 = parseFloat(cv.style.top);
-      if (Math.hypot(x0 - tx, y0 - ty) < Math.max(14, Math.min(pw, ph) * .28)) {
-        cv.style.left = tx + 'px'; cv.style.top = ty + 'px'; cv.style.zIndex = 2; cv.classList.add('placed');
-        jg.placed++; jgStatus();
-        if (jg.placed === jg.total) jgWin();
-      }
-    };
-    cv.addEventListener('pointerup', drop); cv.addEventListener('pointercancel', drop);
-    area.appendChild(cv);
+    const on = jp.sel.has(r * cols + c);
+    piecePath(x, c * pw, r * ph, pw, ph, tabs(r, c));
+    if (any && !on) { x.fillStyle = 'rgba(10,8,20,.45)'; x.fill(); }
+    x.lineWidth = on ? 3 : 1.2; x.strokeStyle = on ? '#c9b8ff' : 'rgba(255,255,255,.7)'; x.stroke();
   }
-  free(pic); jgStatus();
+  // draw selected outlines on top so they are not covered by neighbours
+  for (const k of jp.sel) { const r = Math.floor(k / cols), c = k % cols; piecePath(x, c * pw, r * ph, pw, ph, tabs(r, c)); x.lineWidth = 3; x.strokeStyle = '#c9b8ff'; x.stroke(); }
+  jp.view = { W, H, pw, ph, rows, cols, tabs };
+  $('jgAdd').disabled = !jp.sel.size;
+  $('jgAdd').textContent = jp.sel.size ? `เพิ่ม ${jp.sel.size} ชิ้นเป็นสติกเกอร์` : 'แตะเลือกชิ้นก่อน';
+  $('jgAll').textContent = jp.sel.size === rows * cols ? 'ไม่เลือก' : 'เลือกทั้งหมด';
 }
-function jgWin() {
-  clearInterval(jg.timer); jg.tEnd = Date.now(); jgStatus();
-  $('jgWinText').innerHTML = `ต่อครบ <b>${jg.total}</b> ชิ้นแล้ว!<br>ใช้เวลา <b>${fmtT(jg.tEnd - jg.t0)}</b>`;
-  setTimeout(() => { $('jgWin').style.display = 'flex'; }, 350);
-  const area = $('jgArea');
-  for (let i = 0; i < 26; i++) {
-    const p = document.createElement('div'); p.className = 'petal'; p.textContent = ['🌸', '✨', '🎉', '🌸'][i % 4];
-    p.style.left = Math.random() * 100 + '%'; p.style.animationDuration = (2.2 + Math.random() * 2) + 's'; p.style.animationDelay = Math.random() * .8 + 's';
-    area.appendChild(p); setTimeout(() => p.remove(), 5000);
+$('jgCanvas').addEventListener('click', e => {
+  if (!jp || !jp.view) return;
+  const rect = $('jgCanvas').getBoundingClientRect(), px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const { pw, ph, rows, cols, tabs } = jp.view, x = $('jgCanvas').getContext('2d'), dpr = $('jgCanvas').width / rect.width;
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  let hit = -1;
+  for (let r = 0; r < rows && hit < 0; r++) for (let c = 0; c < cols; c++) {
+    x.save(); x.scale(dpr, dpr); piecePath(x, c * pw, r * ph, pw, ph, tabs(r, c)); x.restore();
+    if (x.isPointInPath(px * dpr, py * dpr)) { hit = r * cols + c; break; }
   }
-}
-$('jgHint').onclick = () => { const b = $('jgBoard'); if (b) { b.classList.toggle('hint'); $('jgHint').classList.toggle('acc', b.classList.contains('hint')); } };
-$('jgAgain').onclick = () => startJigsaw(jg ? jg.n : 4);
-const jgLeave = () => { if (jg && jg.timer) clearInterval(jg.timer); show('sEditor'); render(); };
-$('jgBack').onclick = jgLeave; $('jgDone').onclick = jgLeave;
+  if (hit < 0) return;
+  if (jp.sel.has(hit)) jp.sel.delete(hit); else jp.sel.add(hit);
+  drawPicker();
+});
+$('jgAll').onclick = () => {
+  if (!jp || !jp.view) return; const n = jp.view.rows * jp.view.cols;
+  if (jp.sel.size === n) jp.sel.clear(); else for (let i = 0; i < n; i++) jp.sel.add(i);
+  drawPicker();
+};
+$('jgAdd').onclick = async () => {
+  if (!jp || !jp.sel.size || !img) return;
+  if (!jp.ref) jp.ref = await storePhoto(jp.canvas);
+  const { rows, cols } = jp.view, list = [...jp.sel].sort((a, b) => a - b);
+  const rs = list.map(k => Math.floor(k / cols)), cs = list.map(k => k % cols);
+  const r0 = Math.min(...rs), r1 = Math.max(...rs), c0 = Math.min(...cs), c1 = Math.max(...cs);
+  const spanC = c1 - c0 + 1, spanR = r1 - r0 + 1;
+  const V = view.width, Hh = view.height, M = Math.min(V, Hh);
+  const pwN = Math.min(.32, .6 / spanC), phN = pwN * (jp.canvas.height / rows) / (jp.canvas.width / cols);
+  const rnd = mulberry32(jp.seed + list.length);
+  list.forEach(k => {
+    const r = Math.floor(k / cols), c = k % cols, spread = list.length > 1 ? 1.12 : 1;
+    const x = .5 + ((c - c0) - (spanC - 1) / 2) * pwN * M / V * spread + (rnd() - .5) * .02;
+    const y = .5 + ((r - r0) - (spanR - 1) / 2) * phN * M / Hh * spread + (rnd() - .5) * .02;
+    state.stickers.push({ kind: 'jpiece', ref: jp.ref, rows, cols, r, c, seed: jp.seed, s: pwN, x, y, rot: list.length > 1 ? (rnd() - .5) * .25 : 0, op: 1, shadow: true, bevel: true });
+  });
+  selSticker = state.stickers.length - 1;
+  toast(`เพิ่ม ${list.length} ชิ้นแล้ว · ลากเพื่อจัดวาง`);
+  jp.sel.clear(); show('sEditor'); showPanel('pSticker'); pushHist(); render();
+};
+$('jgBack').onclick = () => { show('sEditor'); render(); };
+window.addEventListener('resize', () => { if (jp && $('sJigsaw').classList.contains('on')) drawPicker(); });
 
 // ---------- frames ----------
 const FRAMES = [['none', 'ไม่มี'], ['white', 'ขอบขาว'], ['polaroid', 'โพลารอยด์'], ['film', 'ฟิล์ม 35mm'], ['scan', 'ฟิล์มสแกน'],
@@ -1736,7 +1932,7 @@ function addSticker(st) {
 }
 function buildStickers() {
   const tabs = $('stTabs'); tabs.innerHTML = '';
-  ['อีโมจิ', 'ลวดลาย', 'ข้อความ', 'รูปภาพ'].forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.className = i === stTab ? 'on' : ''; b.onclick = () => { stTab = i; buildStickers(); }; tabs.appendChild(b); });
+  ['อีโมจิ', 'ลวดลาย', 'ข้อความ', 'รูปภาพ', 'จิ๊กซอว์'].forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.className = i === stTab ? 'on' : ''; b.onclick = () => { stTab = i; buildStickers(); }; tabs.appendChild(b); });
   const box = $('stItems'); box.innerHTML = '';
   if (stTab === 0) {
     const g = document.createElement('div'); g.className = 'stGrid';
@@ -1762,6 +1958,13 @@ function buildStickers() {
     box.appendChild(pre);
     const add = () => { const v = $('stText').value.trim(); if (!v) return; addSticker({ kind: 'text', v, s: .1, color: '#ffffff', font: txtFont, outline: true }); $('stText').value = ''; };
     $('stTextAdd').onclick = add; $('stText').onkeydown = e => { if (e.key === 'Enter') add(); };
+  } else if (stTab === 4) {
+    const w = document.createElement('div'); w.style.cssText = 'padding:8px 14px;display:flex;flex-direction:column;gap:8px';
+    w.innerHTML = `<button class="pill acc" id="jgUp" style="padding:13px">${icon('puzzle', 20).replace('<svg', '<svg style="display:inline;vertical-align:-4px;margin-right:6px"')}อัปรูปมาตัดเป็นจิ๊กซอว์</button>
+      <button class="pill" id="jgCur" style="padding:12px">ใช้รูปที่กำลังแต่งอยู่</button>
+      <div class="stNote" style="padding:0 2px">แอปจะตัดรูปเป็นชิ้นจิ๊กซอว์ แล้วให้เลือกชิ้นที่ต้องการมาเป็นสติกเกอร์</div>`;
+    box.appendChild(w);
+    $('jgUp').onclick = () => $('jgFile').click(); $('jgCur').onclick = useCurrentForPicker;
   } else {
     const w = document.createElement('div'); w.style.padding = '8px 14px';
     w.innerHTML = `<button class="pill acc" id="pipAdd" style="width:100%;padding:13px">${icon('pip', 20).replace('<svg', '<svg style="display:inline;vertical-align:-4px;margin-right:6px"')}เลือกรูปมาซ้อน</button>`;
@@ -1794,7 +1997,7 @@ $('pipFile').addEventListener('change', async e => {
   addSticker({ kind: 'photo', ref, s: .42, shape: 'round', border: true, shadow: true });
 });
 async function preloadPhotos(list, pid) {
-  await Promise.all((list || []).filter(s => s.kind === 'photo' && !PHOTOS[s.ref]).map(async s => {
+  await Promise.all((list || []).filter(s => (s.kind === 'photo' || s.kind === 'jpiece') && !PHOTOS[s.ref]).filter((s, i, a) => a.findIndex(t => t.ref === s.ref) === i).map(async s => {
     try { const b = await tx('images', 'readonly', st => st.get(pid + ':' + s.ref)); if (b) PHOTOS[s.ref] = await photoCanvas(b); } catch (e) {}
   }));
 }
@@ -1848,6 +2051,12 @@ function buildStickerEdit() {
     t2.onclick = () => { st.shadow = !st.shadow; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(t2);
     box.appendChild(sc);
   }
+  if (st.kind === 'jpiece') {
+    const sc = document.createElement('div'); sc.className = 'chips';
+    [['shadow', 'เงา'], ['bevel', 'ขอบนูน']].forEach(([k, n]) => { const b = document.createElement('button'); b.className = 'chip box' + (st[k] ? ' on' : ''); b.textContent = n;
+      b.onclick = () => { st[k] = !st[k]; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(b); });
+    box.appendChild(sc);
+  }
   if (st.kind === 'shape' || st.kind === 'text') {
     const sw = document.createElement('div'); sw.className = 'swatches';
     COLORS.forEach(c => { const b = document.createElement('button'); b.style.background = c; if ((st.color || '') === c) b.className = 'on'; b.onclick = () => { st.color = c; render(); pushHist(); buildStickerEdit(); }; sw.appendChild(b); });
@@ -1864,6 +2073,7 @@ function buildStickerEdit() {
 function stickerBox(st, W, H) {
   const px = st.s * Math.min(W, H);
   if (st.kind === 'photo') return photoBox(st, px);
+  if (st.kind === 'jpiece') return jpieceBox(st, px);
   if (st.kind === 'text') { vctx.save(); vctx.font = stickerFont(st, px); const tw = vctx.measureText(st.v).width; vctx.restore(); return [tw / 2 + px * .2, px * .7]; }
   return [px * .58, px * .58];
 }
@@ -1918,7 +2128,11 @@ function stickerUp(e) {
 
 // ---------- panels / navigation ----------
 function showPanel(id, sub) {
+  const wasCrop = curPanel === 'pCrop';
   curPanel = id;
+  $('stage').classList.toggle('cropping', id === 'pCrop');
+  if (id === 'pCrop') { resetVZ(); if (!wasCrop && img) srcPrev = sourceData(1200, 0, true); }
+  else if (wasCrop && img) { rebuildSources(true); if (cropBase) { free(cropBase); cropBase = null; } }
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === id));
   document.querySelectorAll('#edTools button').forEach(b => b.classList.toggle('on', b.dataset.panel === id));
   if (id === 'pAdjust') { if (sub != null) adjTab = sub; buildAdjust(); }
@@ -1942,7 +2156,7 @@ function show(id) {
 }
 document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => show(b.dataset.tab));
 $('seeAll').onclick = () => show('sLibrary');
-$('edBack').onclick = async () => { await saveNow(); show('sHome'); };
+$('edBack').onclick = async () => { if (document.body.classList.contains('edfs')) { setEditorFS(false); return; } await saveNow(); resetVZ(); show('sHome'); };
 
 // ---------- open images / projects ----------
 let pickFor = null, pendingTool = null;
@@ -1954,12 +2168,11 @@ document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
 });
 function openEditor(tool) {
   show('sEditor');
-  const map = { filter: ['pFilter'], adjust: ['pAdjust', 0], color: ['pAdjust', 1], crop: ['pCrop'], fx: ['pFx'], more: ['pMore'], sticker: ['pSticker'], pip: ['pSticker'], jigsaw: ['pFilter'] };
+  const map = { filter: ['pFilter'], adjust: ['pAdjust', 0], color: ['pAdjust', 1], crop: ['pCrop'], fx: ['pFx'], more: ['pMore'], sticker: ['pSticker'], pip: ['pSticker'], jigsaw: ['pSticker'] };
   const [p, sub] = map[tool] || ['pFilter'];
-  if (tool === 'pip') stTab = 3; else if (tool === 'sticker' && stTab === 3) stTab = 0;
+  if (tool === 'pip') stTab = 3; else if (tool === 'jigsaw') stTab = 4; else if (tool === 'sticker' && stTab >= 3) stTab = 0;
   showPanel(p, sub);
   requestAnimationFrame(render);
-  if (tool === 'jigsaw') openJigsaw();
 }
 async function decode(blob) {
   const im = new Image(); im.src = URL.createObjectURL(blob);
@@ -1969,13 +2182,13 @@ $('file').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   let im; try { im = await decode(f); } catch (err) { toast('เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'); return; }
   if (pickFor === 'replace' && projectId) {
-    img = im; imgBlob = f; crop = Object.assign({}, CROP0);
+    img = im; imgBlob = f; crop = crop0();
     try { await tx('images', 'readwrite', s => s.put(f, projectId)); } catch (e2) {}
     rebuildSources(true); render(); pushHist(); return;
   }
   if (projectId) await saveNow();
   img = im; imgBlob = f; projectId = 'p' + Date.now();
-  crop = Object.assign({}, CROP0); dateStr = new Date().toISOString().slice(0, 10); state.stickers = []; selSticker = -1;
+  crop = crop0(); dateStr = new Date().toISOString().slice(0, 10); state.stickers = []; selSticker = -1;
   const keepPreset = state.preset; Object.assign(state, DEFAULTS, keepPreset.d); state.preset = keepPreset;
   try { await tx('images', 'readwrite', s => s.put(f, projectId)); } catch (e2) { toast('พื้นที่เก็บไม่พอ · โปรเจกต์นี้จะไม่ถูกบันทึก'); }
   hist = []; hi = -1;
