@@ -1,4 +1,4 @@
-const CACHE = 'filmtone-v11';
+const CACHE = 'filmtone-v12';
 const FONT_CACHE = 'filmtone-fonts';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });

@@ -143,6 +143,21 @@
 
   /* ---------- editor fullscreen + landscape ---------- */
   body.edfs #sEditor .panelWrap, body.edfs #sEditor .toolbar, body.edfs #toExport { display:none !important; }
+  #menuBtn, .sheetHead { display:none; }
+  body.edfs #menuBtn { display:flex; }
+  body.edfs.sheet #sEditor .panelWrap { display:block !important; position:fixed; left:0; right:0; bottom:0; z-index:40; max-height:50vh;
+    background:rgba(26,23,35,.94); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:18px 18px 0 0;
+    padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -10px 30px rgba(0,0,0,.45); }
+  body.edfs.sheet .sheetHead { display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:2;
+    padding:6px 8px 0 18px; font-weight:600; font-size:15px; background:rgba(26,23,35,.96); }
+  body.edfs.sheet .sheetHead::before { content:""; position:absolute; left:50%; top:5px; width:38px; height:4px; border-radius:2px; background:#4a4460; transform:translateX(-50%); }
+  body.edfs.sheet #sEditor .stage { padding-bottom:50vh; }
+  #fsMenu { position:fixed; top:calc(56px + env(safe-area-inset-top)); right:10px; z-index:45; display:none; flex-direction:column; min-width:210px;
+    background:rgba(33,30,43,.97); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:16px; padding:6px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  #fsMenu.open { display:flex; }
+  #fsMenu button { display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:10px; font-size:15px; text-align:left; color:var(--text); }
+  #fsMenu button:active { background:var(--panel2); }
+  #fsMenu hr { border:none; border-top:1px solid var(--line); margin:4px 6px; }
   body.edfs #sEditor { background:#000; }
   body.edfs #sEditor .stage { padding-bottom:env(safe-area-inset-bottom); }
   .stage { overflow:hidden; }
@@ -155,6 +170,8 @@
     #sEditor .panelWrap { grid-column:2; grid-row:2; max-height:none; overflow-y:auto; border-left:1px solid var(--line); }
     #sEditor .toolbar { grid-column:2; grid-row:3; border-left:1px solid var(--line); }
     body.edfs #sEditor.on { grid-template-columns:minmax(0,1fr) 0; }
+    body.edfs.sheet #sEditor .stage { padding-bottom:8px; padding-right:min(400px,46vw); }
+    body.edfs.sheet #sEditor .panelWrap { left:auto; top:calc(56px + env(safe-area-inset-top)); width:min(400px,46vw); max-height:none; border-radius:18px 0 0 0; }
   }
 
   /* ---------- export ---------- */
@@ -275,6 +292,7 @@
     <span class="title" id="edTitle"></span>
     <button class="ib" id="undo"><span data-i="undo"></span></button>
     <button class="ib" id="redo"><span data-i="redo"></span></button>
+    <button class="ib" id="menuBtn" title="เมนู"><span data-i="menu"></span></button>
     <button class="ib" id="fsBtn" title="เต็มจอ"><span data-i="expand"></span></button>
     <button class="pill" id="compare">เปรียบเทียบ</button>
     <button class="pill acc" id="toExport">ส่งออก</button>
@@ -285,6 +303,7 @@
     <div class="cropHint" id="cropHint">ลากมุม/ขอบเพื่อปรับขนาด · 2 นิ้วเพื่อย่อและหมุนเอียง</div>
   </div>
   <div class="panelWrap">
+    <div class="sheetHead"><span id="sheetTitle"></span><button class="ib" id="sheetClose" title="ซ่อน"><span data-i="chevDown"></span></button></div>
     <!-- filters -->
     <div class="panel on" id="pFilter">
       <div class="chips" id="cats"></div>
@@ -334,6 +353,18 @@
         <button class="item" id="mReplace"><span data-i="image"></span>เปลี่ยนรูป</button>
       </div>
     </div>
+  </div>
+  <div id="fsMenu">
+    <button data-panel="pFilter"><span data-i="wand"></span>ฟิลเตอร์</button>
+    <button data-panel="pAdjust"><span data-i="adjust"></span>ปรับแต่ง</button>
+    <button data-panel="pCrop"><span data-i="crop"></span>ครอปตัด</button>
+    <button data-panel="pFx"><span data-i="fx"></span>เอฟเฟกต์</button>
+    <button data-panel="pFrame"><span data-i="frame"></span>กรอบ</button>
+    <button data-panel="pSticker"><span data-i="sticker"></span>สติกเกอร์</button>
+    <button data-panel="pMore"><span data-i="more"></span>เพิ่มเติม</button>
+    <hr>
+    <button id="fsMenuExport"><span data-i="upload"></span>ส่งออก</button>
+    <button id="fsMenuExit"><span data-i="shrink"></span>ออกจากเต็มจอ</button>
   </div>
   <div class="toolbar" id="edTools">
     <button class="on" data-panel="pFilter"><span data-i="wand"></span>ฟิลเตอร์</button>
@@ -1340,6 +1371,7 @@ const IC = {
   pip:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="11" y="11" width="8" height="7" rx="1.5" fill="currentColor" opacity=".35"/><path d="M3 15l4-4 3 3"/>',
   puzzle:'<path d="M4 8h3.5a2 2 0 114 0H15v3.5a2 2 0 110 4V19H11.5a2 2 0 10-4 0H4v-3.5a2 2 0 100-4z"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', shrink:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  menu:'<path d="M4 7h16M4 12h16M4 17h16"/>', chevDown:'<path d="M6 9l6 6 6-6"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z" fill="currentColor"/>',
 };
 function icon(n, s) { return `<svg viewBox="0 0 24 24" width="${s || 22}" height="${s || 22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${IC[n] || ''}</svg>`; }
@@ -1428,7 +1460,16 @@ function stepHist(d) {
   syncAll(); render(); paintUndo(); scheduleSave();
 }
 $('undo').onclick = () => stepHist(-1); $('redo').onclick = () => stepHist(1);
+const TOOL_NAMES = { pFilter: 'ฟิลเตอร์', pAdjust: 'ปรับแต่ง', pCrop: 'ครอปตัด', pFx: 'เอฟเฟกต์', pFrame: 'กรอบ', pSticker: 'สติกเกอร์', pMore: 'เพิ่มเติม' };
+function setSheet(open) {
+  document.body.classList.toggle('sheet', open);
+  $('sheetTitle').textContent = TOOL_NAMES[curPanel] || '';
+  setTimeout(render, 30);
+}
+function setMenu(open) { $('fsMenu').classList.toggle('open', open); }
 function setEditorFS(on) {
+  resetVZ(); sp.clear(); sg = null; cg = null;
+  setMenu(false); if (!on) document.body.classList.remove('sheet');
   document.body.classList.toggle('edfs', on);
   $('fsBtn').innerHTML = icon(on ? 'shrink' : 'expand', 22);
   try {
@@ -1438,6 +1479,12 @@ function setEditorFS(on) {
   setTimeout(render, 60);
 }
 $('fsBtn').onclick = () => setEditorFS(!document.body.classList.contains('edfs'));
+$('menuBtn').onclick = e => { e.stopPropagation(); setMenu(!$('fsMenu').classList.contains('open')); };
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#fsMenu') && !e.target.closest('#menuBtn')) setMenu(false); }, true);
+$('fsMenu').querySelectorAll('button[data-panel]').forEach(b => b.onclick = () => { setMenu(false); showPanel(b.dataset.panel); setSheet(true); });
+$('fsMenuExport').onclick = () => { setMenu(false); setEditorFS(false); $('toExport').click(); };
+$('fsMenuExit').onclick = () => { setMenu(false); setEditorFS(false); };
+$('sheetClose').onclick = () => setSheet(false);
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('edfs')) setEditorFS(false); });
 
 // ---------- crop + sources ----------
@@ -1513,6 +1560,8 @@ function startViewPinch() { const t = twoInfo(); sg = { mode: 'vpinch', d0: t.d,
 const stageEl = $('stage');
 stageEl.addEventListener('pointerdown', e => {
   if (!srcPrev) return;
+  // a new first finger means every earlier touch has ended, even if the browser never told us (fixes stuck gestures)
+  if (e.isPrimary) { sp.clear(); sg = null; cg = null; ptrs.clear(); gest = null; if (comparing) showOriginal(false); }
   sp.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { stageEl.setPointerCapture(e.pointerId); } catch (err) {}
   if (curPanel === 'pCrop') { cropDown(e); return; }
   if (curPanel === 'pSticker') {
@@ -1537,7 +1586,8 @@ stageEl.addEventListener('pointermove', e => {
   }
   if (curPanel === 'pSticker') stickerMove(e);
 });
-['pointerup', 'pointercancel'].forEach(ev => stageEl.addEventListener(ev, e => {
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => stageEl.addEventListener(ev, e => {
+  if (!sp.has(e.pointerId) && ev === 'lostpointercapture') return;
   sp.delete(e.pointerId);
   if (curPanel === 'pCrop') { cropUp(e); return; }
   if (curPanel === 'pSticker' && !(sg && (sg.mode === 'vpinch' || sg.mode === 'pan'))) stickerUp(e);
