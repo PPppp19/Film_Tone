@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#15131c">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@700&family=Prompt:wght@700&family=Mitr:wght@600&family=Itim&family=Sriracha&family=Pattaya&family=Charm:wght@700&family=Chonburi&family=Zen+Maru+Gothic:wght@700&family=Kosugi+Maru&family=Yusei+Magic&family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Reggae+One&family=Yuji+Syuku&family=Shippori+Mincho:wght@600&family=Pacifico&family=Caveat:wght@700&family=Bebas+Neue&family=Playfair+Display:wght@700&family=Permanent+Marker&family=Dancing+Script:wght@700&family=Lobster&family=Special+Elite&display=swap">
 <title>Film Tone</title>
 <style>
   :root { --bg:#15131c; --panel:#211e2b; --panel2:#2a2636; --line:#322d40; --text:#f3f0f9; --muted:#9d97ad;
@@ -37,7 +39,7 @@
   .tag .en { font-size:12px; opacity:.85; margin-top:4px; }
   .pickBtn { position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:3; display:flex; align-items:center; gap:10px;
     background:var(--accent); color:var(--ink); font-weight:700; font-size:17px; padding:15px 30px; border-radius:30px; box-shadow:0 8px 30px rgba(155,130,242,.35); white-space:nowrap; }
-  .tools { margin:22px 16px 0; background:var(--panel); border-radius:18px; display:grid; grid-template-columns:repeat(3,1fr); padding:10px 4px; }
+  .tools { margin:22px 16px 0; background:var(--panel); border-radius:18px; display:grid; grid-template-columns:repeat(3,1fr); padding:8px 4px; }
   .tool { display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 4px; font-size:13px; color:#e9e5f3; }
   .tool svg { color:#d9cffd; }
   .secHead { display:flex; justify-content:space-between; align-items:center; margin:22px 18px 10px; font-size:16px; font-weight:600; }
@@ -153,6 +155,22 @@
   .gradBtn { display:flex; align-items:center; justify-content:center; gap:10px; margin:18px 16px calc(16px + env(safe-area-inset-bottom)); padding:16px; border-radius:30px; background:var(--grad); color:#fff; font-size:17px; font-weight:700; width:calc(100% - 32px); }
   #customRow { display:none; padding:10px 16px 0; align-items:center; gap:10px; font-size:14px; color:var(--muted); }
 
+  /* ---------- jigsaw ---------- */
+  #jgArea { position:relative; flex:1; overflow:hidden; touch-action:none; margin-bottom:env(safe-area-inset-bottom); }
+  #jgBoard { position:absolute; border-radius:4px; background:#0d0b12; box-shadow:inset 0 0 0 1px #3a3450; }
+  #jgBoard canvas { width:100%; height:100%; display:block; opacity:0; transition:opacity .3s; }
+  #jgBoard.hint canvas { opacity:.22; }
+  .jpc { position:absolute; touch-action:none; cursor:grab; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+  .jpc.placed { filter:none; cursor:default; }
+  #jgWin { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(10,8,16,.55); z-index:50; }
+  #jgWin .box { background:var(--panel); border-radius:20px; padding:22px 24px; text-align:center; width:min(86%,340px); }
+  #jgWin .big { font-size:48px; }
+  #jgWin .row { display:flex; gap:10px; justify-content:center; margin-top:16px; }
+  #jgWinText { font-size:16px; line-height:1.6; }
+  .petal { position:absolute; top:-30px; font-size:22px; pointer-events:none; animation:fall linear forwards; z-index:49; }
+  @keyframes fall { to { transform:translateY(110vh) rotate(540deg); } }
+  .fontChip { font-size:16px !important; }
+
   /* ---------- overlays ---------- */
   #toast { position:fixed; left:50%; bottom:calc(100px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:#3a3350; color:#fff; padding:9px 16px; border-radius:20px; font-size:13px; display:none; z-index:60; max-width:86%; text-align:center; }
   #busy { position:fixed; inset:0; background:rgba(10,8,16,.65); display:none; align-items:center; justify-content:center; z-index:70; font-size:15px; }
@@ -182,6 +200,9 @@
       <button class="tool" data-tool="color"><span data-i="palette" data-s="30"></span>สี</button>
       <button class="tool" data-tool="crop"><span data-i="crop" data-s="30"></span>ครอปตัด</button>
       <button class="tool" data-tool="fx"><span data-i="fx" data-s="30"></span>เอฟเฟกต์</button>
+      <button class="tool" data-tool="sticker"><span data-i="sticker" data-s="30"></span>สติกเกอร์</button>
+      <button class="tool" data-tool="pip"><span data-i="pip" data-s="30"></span>ซ้อนรูป</button>
+      <button class="tool" data-tool="jigsaw"><span data-i="puzzle" data-s="30"></span>จิ๊กซอว์</button>
       <button class="tool" data-tool="more"><span data-i="more" data-s="30"></span>เพิ่มเติม</button>
     </div>
     <div class="secHead">โปรเจกต์ล่าสุด <button id="seeAll">ดูทั้งหมด <span data-i="chev" data-s="14"></span></button></div>
@@ -298,6 +319,7 @@
         <button class="item" id="mSave"><span data-i="star"></span>บันทึกเป็นพรีเซ็ต</button>
         <button class="item" id="mCopy"><span data-i="copy"></span>คัดลอกการปรับแต่ง</button>
         <button class="item" id="mPaste"><span data-i="paste"></span>วางการปรับแต่ง</button>
+        <button class="item" id="mJigsaw"><span data-i="puzzle"></span>เล่นจิ๊กซอว์จากรูปนี้</button>
         <button class="item" id="mReseed"><span data-i="dice"></span>สุ่มเกรน ฝุ่น และรอยขีดใหม่</button>
         <button class="item" id="mResetAll"><span data-i="reset"></span>รีเซ็ตทั้งหมด</button>
         <button class="item" id="mReplace"><span data-i="image"></span>เปลี่ยนรูป</button>
@@ -344,7 +366,21 @@
   </div>
 </section>
 
+<!-- ================= JIGSAW GAME ================= -->
+<section class="screen" id="sJigsaw">
+  <div class="topbar">
+    <button class="ib" id="jgBack"><span data-i="back"></span></button>
+    <span class="title" style="text-align:left;padding-left:4px">จิ๊กซอว์ <span id="jgStat" style="font-size:13px;color:var(--muted);font-weight:400"></span></span>
+    <button class="pill" id="jgHint">ภาพใบ้</button>
+  </div>
+  <div class="chips" id="jgSizes" style="justify-content:center"></div>
+  <div id="jgArea"></div>
+  <div id="jgWin"><div class="box"><div class="big">🎉</div><div id="jgWinText"></div>
+    <div class="row"><button class="pill" id="jgAgain">เล่นอีกครั้ง</button><button class="pill acc" id="jgDone">กลับไปแต่งรูป</button></div></div></div>
+</section>
+
 <input id="file" type="file" accept="image/*" hidden>
+<input id="pipFile" type="file" accept="image/*" hidden>
 <div id="toast"></div>
 <div id="busy">กำลังล้างฟิล์ม…</div>
 <div id="result">
@@ -936,7 +972,6 @@ function drawShape(c, kind, s, col) {
 }
 const STICKER_FONTS = { sans: '"Hiragino Sans","Noto Sans CJK JP",system-ui,sans-serif', serif: '"Hiragino Mincho ProN","Noto Serif CJK JP",Georgia,serif',
   mono: '"Courier New",Courier,monospace', round: '"Arial Rounded MT Bold","Hiragino Maru Gothic ProN",system-ui,sans-serif' };
-function stickerFont(st, px) { return `${st.font === 'mono' ? 700 : 800} ${px}px ${STICKER_FONTS[st.font] || STICKER_FONTS.sans}`; }
 function drawStickers(ctx, W, H, list) {
   const M = Math.min(W, H);
   list.forEach(st => {
@@ -954,6 +989,145 @@ function drawStickers(ctx, W, H, list) {
     ctx.restore();
   });
 }
+
+// =============== web fonts for text stickers ===============
+const GFONTS = [
+  // [key, family, weight, label, sample]
+  ['Kanit', 'Kanit', 700, 'Kanit', 'สวัสดี'], ['Prompt', 'Prompt', 700, 'Prompt', 'สวัสดี'], ['Mitr', 'Mitr', 600, 'Mitr', 'สวัสดี'],
+  ['Itim', 'Itim', 400, 'Itim', 'สวัสดี'], ['Sriracha', 'Sriracha', 400, 'Sriracha', 'สวัสดี'], ['Pattaya', 'Pattaya', 400, 'Pattaya', 'สวัสดี'],
+  ['Charm', 'Charm', 700, 'Charm', 'สวัสดี'], ['Chonburi', 'Chonburi', 400, 'Chonburi', 'สวัสดี'],
+  ['ZenMaru', 'Zen Maru Gothic', 700, 'Zen Maru', 'さくら'], ['Kosugi', 'Kosugi Maru', 400, 'Kosugi Maru', 'さくら'],
+  ['Yusei', 'Yusei Magic', 400, 'Yusei Magic', 'さくら'], ['Dela', 'Dela Gothic One', 400, 'Dela Gothic', 'さくら'],
+  ['Hachi', 'Hachi Maru Pop', 400, 'Hachi Maru', 'さくら'], ['Reggae', 'Reggae One', 400, 'Reggae', 'さくら'],
+  ['Yuji', 'Yuji Syuku', 400, 'Yuji Syuku', '思い出'], ['Shippori', 'Shippori Mincho', 600, 'Shippori', '思い出'],
+  ['Pacifico', 'Pacifico', 400, 'Pacifico', 'Hello'], ['Caveat', 'Caveat', 700, 'Caveat', 'Hello'], ['Bebas', 'Bebas Neue', 400, 'Bebas Neue', 'HELLO'],
+  ['Playfair', 'Playfair Display', 700, 'Playfair', 'Hello'], ['Marker', 'Permanent Marker', 400, 'Marker', 'Hello'],
+  ['Dancing', 'Dancing Script', 700, 'Dancing', 'Hello'], ['Lobster', 'Lobster', 400, 'Lobster', 'Hello'], ['Elite', 'Special Elite', 400, 'Typewriter', 'Hello'],
+];
+const GFONT = {}; GFONTS.forEach(f => GFONT[f[0]] = f);
+function stickerFont(st, px) {
+  const g = GFONT[st.font];
+  if (g) return `${g[2]} ${px}px "${g[1]}", "Hiragino Sans", system-ui, sans-serif`;
+  return `${st.font === 'mono' ? 700 : 800} ${px}px ${STICKER_FONTS[st.font] || STICKER_FONTS.sans}`;
+}
+
+// =============== picture-in-picture photo layers ===============
+const PHOTOS = {};   // ref -> canvas (decoded photo)
+function shapePath(c, shape, w, h) {
+  const x = -w / 2, y = -h / 2;
+  c.beginPath();
+  if (shape === 'circle') c.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+  else if (shape === 'heart') {
+    c.moveTo(0, h * .42); c.bezierCurveTo(-w * .62, h * .02, -w * .5, -h * .52, 0, -h * .22);
+    c.bezierCurveTo(w * .5, -h * .52, w * .62, h * .02, 0, h * .42);
+  } else if (shape === 'round') { const r = Math.min(w, h) * .1; c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); }
+  else c.rect(x, y, w, h);
+  c.closePath();
+}
+function photoDims(st, im, px) {
+  const sq = st.shape === 'circle' || st.shape === 'heart';
+  const w = px, h = sq ? px : px * im.height / im.width;
+  return { w, h, sq };
+}
+function drawPhotoLayer(c, st, px) {
+  const im = PHOTOS[st.ref]; if (!im) return;
+  const { w, h, sq } = photoDims(st, im, px);
+  const pol = st.shape === 'polaroid', b = st.border ? px * .035 : 0;
+  const cw = pol ? w + px * .1 : w + b * 2, ch = pol ? h + px * .28 : h + b * 2, oy = pol ? -px * .07 : 0;
+  // card / border / shadow
+  c.save();
+  if (st.shadow) { c.shadowColor = 'rgba(0,0,0,.38)'; c.shadowBlur = px * .07; c.shadowOffsetY = px * .025; }
+  c.fillStyle = pol ? '#f8f6f1' : (st.border ? '#ffffff' : 'rgba(0,0,0,0)');
+  if (pol) { c.fillRect(-cw / 2, -ch / 2, cw, ch); }
+  else { shapePath(c, st.shape, cw, ch); if (st.border || st.shadow) { if (!st.border) c.fillStyle = '#000'; c.fill(); } }
+  c.restore();
+  // image, clipped to shape
+  c.save();
+  if (pol) { c.beginPath(); c.rect(-w / 2, -h / 2 + oy, w, h); }
+  else shapePath(c, st.shape, w, h);
+  c.clip();
+  let sx = 0, sy = 0, sw = im.width, sh = im.height;
+  if (sq) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
+  c.drawImage(im, sx, sy, sw, sh, -w / 2, -h / 2 + oy, w, h);
+  c.restore();
+}
+function photoBox(st, px) {
+  const im = PHOTOS[st.ref]; if (!im) return [px * .5, px * .5];
+  const { w, h } = photoDims(st, im, px);
+  if (st.shape === 'polaroid') return [(w + px * .1) / 2, (h + px * .28) / 2];
+  const b = st.border ? px * .035 : 0; return [w / 2 + b, h / 2 + b];
+}
+const _drawStickersBase = drawStickers;
+drawStickers = function (ctx, W, H, list) {
+  const M = Math.min(W, H);
+  list.forEach(st => {
+    if (st.kind !== 'photo') { _drawStickersBase(ctx, W, H, [st]); return; }
+    ctx.save(); ctx.globalAlpha = st.op == null ? 1 : st.op; ctx.translate(st.x * W, st.y * H); ctx.rotate(st.rot || 0);
+    drawPhotoLayer(ctx, st, st.s * M); ctx.restore();
+  });
+};
+
+// =============== jigsaw ===============
+function jigEdge(c, x0, y0, x1, y1, t) {
+  if (!t) { c.lineTo(x1, y1); return; }
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = uy * t, ny = -ux * t;
+  const P = (a, b) => [x0 + ux * L * a + nx * L * b, y0 + uy * L * a + ny * L * b];
+  c.lineTo(...P(.36, 0));
+  c.bezierCurveTo(...P(.42, .01), ...P(.3, .23), ...P(.5, .23));
+  c.bezierCurveTo(...P(.7, .23), ...P(.58, .01), ...P(.64, 0));
+  c.lineTo(x1, y1);
+}
+function piecePath(c, x, y, w, h, t) {
+  c.beginPath(); c.moveTo(x, y);
+  jigEdge(c, x, y, x + w, y, t[0]); jigEdge(c, x + w, y, x + w, y + h, t[1]);
+  jigEdge(c, x + w, y + h, x, y + h, t[2]); jigEdge(c, x, y + h, x, y, t[3]); c.closePath();
+}
+// tabs for a rows x cols grid; returns fn(r,c) -> [top,right,bottom,left]
+function jigTabs(rows, cols, seed) {
+  const rnd = mulberry32(seed), V = [], Hh = [];
+  for (let r = 0; r < rows; r++) { V.push([]); Hh.push([]); for (let c = 0; c < cols; c++) { V[r].push(rnd() < .5 ? 1 : -1); Hh[r].push(rnd() < .5 ? 1 : -1); } }
+  return (r, c) => [r === 0 ? 0 : -V[r - 1][c], c === cols - 1 ? 0 : Hh[r][c], r === rows - 1 ? 0 : V[r][c], c === 0 ? 0 : -Hh[r][c - 1]];
+}
+function jigGrid(w, h, target) {
+  const pieceSz = Math.sqrt(w * h / target);
+  return [Math.max(2, Math.round(h / pieceSz)), Math.max(2, Math.round(w / pieceSz))];
+}
+function jigsawFrame(cv, seed, missing) {
+  const w = cv.width, h = cv.height, c = cv.getContext('2d'), m = Math.min(w, h);
+  const [rows, cols] = jigGrid(w, h, 20), pw = w / cols, ph = h / rows, tabs = jigTabs(rows, cols, seed);
+  let hole = null;
+  if (missing) {
+    const rnd = mulberry32(seed + 3), r = 1 + Math.floor(rnd() * (rows - 2)), cc = 1 + Math.floor(rnd() * (cols - 2));
+    const mg = Math.max(pw, ph) * .3, pc = mk(Math.ceil(pw + mg * 2), Math.ceil(ph + mg * 2)), px = pc.getContext('2d');
+    px.save(); piecePath(px, mg, mg, pw, ph, tabs(r, cc)); px.clip(); px.drawImage(cv, -cc * pw + mg, -r * ph + mg); px.restore();
+    hole = { r, c: cc, pc, mg };
+  }
+  c.save(); c.lineJoin = 'round';
+  for (let r = 0; r < rows; r++) for (let cc = 0; cc < cols; cc++) {
+    piecePath(c, cc * pw, r * ph, pw, ph, tabs(r, cc));
+    c.strokeStyle = 'rgba(0,0,0,.42)'; c.lineWidth = Math.max(1, m * .004); c.stroke();
+    c.save(); c.translate(m * .0025, m * .0025); c.strokeStyle = 'rgba(255,255,255,.32)'; c.lineWidth = Math.max(1, m * .0022); c.stroke(); c.restore();
+  }
+  if (hole) {
+    const { r, c: cc, pc, mg } = hole;
+    piecePath(c, cc * pw, r * ph, pw, ph, tabs(r, cc));
+    c.fillStyle = '#26222e'; c.fill();
+    c.save(); c.clip(); c.shadowColor = 'rgba(0,0,0,.8)'; c.shadowBlur = m * .02; c.lineWidth = m * .02; c.strokeStyle = 'rgba(0,0,0,.6)'; c.stroke(); c.restore();
+    c.save(); c.translate(cc * pw + pw * .55 - mg, r * ph + ph * .62 - mg); c.rotate(-.18);
+    c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = m * .025; c.shadowOffsetY = m * .01; c.drawImage(pc, 0, 0); c.restore();
+    c.save(); c.translate(cc * pw + pw * .55 - mg, r * ph + ph * .62 - mg); c.rotate(-.18);
+    piecePath(c, mg, mg, pw, ph, tabs(r, cc)); c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = Math.max(1, m * .003); c.stroke(); c.restore();
+    free(pc);
+  }
+  c.restore();
+  return cv;
+}
+const _addFrameBase = addFrame;
+addFrame = function (cv, type, seed) {
+  if (type === 'jigsaw') return jigsawFrame(cv, seed, false);
+  if (type === 'jigsaw2') return jigsawFrame(cv, seed, true);
+  return _addFrameBase(cv, type, seed);
+};
 
 // ======================================================================
 //                              APP (v2 UI)
@@ -1043,6 +1217,8 @@ const IC = {
   checker:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16" opacity=".7"/>',
   leaf:'<path d="M5 19C5 10 10 5 20 4c-1 10-6 15-15 15z"/><path d="M5 19l8-8"/>',
   sticker:'<path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v8l-6 6H6a2 2 0 01-2-2z"/><path d="M14 20v-4a2 2 0 012-2h4"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="14" cy="10" r=".8" fill="currentColor"/><path d="M9 13.5c1.4 1.2 3.6 1.2 5 0"/>',
+  pip:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="11" y="11" width="8" height="7" rx="1.5" fill="currentColor" opacity=".35"/><path d="M3 15l4-4 3 3"/>',
+  puzzle:'<path d="M4 8h3.5a2 2 0 114 0H15v3.5a2 2 0 110 4V19H11.5a2 2 0 10-4 0H4v-3.5a2 2 0 100-4z"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z" fill="currentColor"/>',
 };
 function icon(n, s) { return `<svg viewBox="0 0 24 24" width="${s || 22}" height="${s || 22}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${IC[n] || ''}</svg>`; }
@@ -1168,6 +1344,7 @@ let pending = false;
 function render() {
   if (!srcPrev || pending) return;
   pending = true;
+  if (missingFonts(state.stickers).length) loadFonts(state.stickers).then(() => render());
   requestAnimationFrame(() => {
     pending = false; if (comparing) return;
     const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, state);
@@ -1372,10 +1549,85 @@ $('mPaste').onclick = pasteSettings;
 $('mReseed').onclick = () => { state.seed = (Math.random() * 1e9) | 0; render(); pushHist(); toast('สุ่มใหม่แล้ว'); };
 $('mResetAll').onclick = () => { crop = Object.assign({}, CROP0); rebuildSources(true); selectPreset(PRESETS[0]); };
 $('mReplace').onclick = () => { pickFor = 'replace'; $('file').click(); };
+$('mJigsaw').onclick = () => openJigsaw();
+
+// ---------- jigsaw game ----------
+let jg = null;
+function fmtT(ms) { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+function openJigsaw() { if (!srcPrev) return; saveNow(); show('sJigsaw'); requestAnimationFrame(() => startJigsaw(ls.get('filmtone-jgn', 4))); }
+function jgStatus() { if (!jg) return; $('jgStat').textContent = `${jg.placed}/${jg.total} · ${fmtT(jg.t0 ? (jg.tEnd || Date.now()) - jg.t0 : 0)}`; }
+function startJigsaw(n) {
+  if (jg && jg.timer) clearInterval(jg.timer);
+  ls.set('filmtone-jgn', n);
+  const sz = $('jgSizes'); sz.innerHTML = '';
+  [3, 4, 5, 6, 7].forEach(k => { const b = document.createElement('button'); b.className = 'chip box' + (k === n ? ' on' : ''); b.textContent = `${k}×${k}`; b.onclick = () => startJigsaw(k); sz.appendChild(b); });
+  const area = $('jgArea'); area.innerHTML = ''; $('jgWin').style.display = 'none';
+  const AW = area.clientWidth, AH = area.clientHeight;
+  const gst = /^jigsaw/.test(state.border) ? Object.assign({}, state, { border: 'none' }) : state;
+  const res = processImage(srcPrev.data, srcPrev.w, srcPrev.h, gst), ar = res.width / res.height;
+  let bw = Math.min(AW - 24, AH * .56 * ar), bh = bw / ar;
+  const bx = (AW - bw) / 2, by = 8, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const pic = mk(Math.round(bw * dpr), Math.round(bh * dpr)), px = pic.getContext('2d'); px.imageSmoothingQuality = 'high'; px.drawImage(res, 0, 0, pic.width, pic.height); free(res);
+  const board = document.createElement('div'); board.id = 'jgBoard';
+  Object.assign(board.style, { left: bx + 'px', top: by + 'px', width: bw + 'px', height: bh + 'px' });
+  const hint = mk(pic.width, pic.height); hint.getContext('2d').drawImage(pic, 0, 0); board.appendChild(hint); area.appendChild(board);
+  const [rows, cols] = jigGrid(bw, bh, n * n), pw = bw / cols, ph = bh / rows, tabs = jigTabs(rows, cols, (Math.random() * 1e6) | 0);
+  const mg = Math.max(pw, ph) * .3, cw = pw + mg * 2, ch = ph + mg * 2;
+  jg = { placed: 0, total: rows * cols, t0: 0, tEnd: 0, z: 10, n };
+  const trayTop = by + bh + 8, trayOK = AH - trayTop > ch * .7;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const tx = bx + c * pw - mg, ty = by + r * ph - mg;
+    const cv = mk(Math.ceil(cw * dpr), Math.ceil(ch * dpr)), x = cv.getContext('2d');
+    x.scale(dpr, dpr); x.save(); piecePath(x, mg, mg, pw, ph, tabs(r, c)); x.clip();
+    x.drawImage(pic, mg - c * pw, mg - r * ph, bw, bh); x.restore();
+    piecePath(x, mg, mg, pw, ph, tabs(r, c)); x.lineWidth = 1.2; x.strokeStyle = 'rgba(255,255,255,.45)'; x.stroke();
+    cv.className = 'jpc'; cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+    cv.dataset.tx = tx; cv.dataset.ty = ty;
+    const sx = 4 + Math.random() * Math.max(1, AW - cw - 8);
+    const sy = trayOK ? trayTop - mg * .5 + Math.random() * Math.max(1, AH - trayTop - ch + mg) : Math.random() * Math.max(1, AH - ch);
+    cv.style.left = sx + 'px'; cv.style.top = sy + 'px'; cv.style.zIndex = 10 + Math.floor(Math.random() * 5);
+    let drag = null;
+    cv.addEventListener('pointerdown', e => {
+      if (cv.classList.contains('placed')) return;
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      if (!jg.t0) { jg.t0 = Date.now(); jg.timer = setInterval(jgStatus, 1000); }
+      cv.style.zIndex = ++jg.z;
+      drag = { dx: e.clientX - parseFloat(cv.style.left), dy: e.clientY - parseFloat(cv.style.top) };
+    });
+    cv.addEventListener('pointermove', e => { if (!drag) return; cv.style.left = (e.clientX - drag.dx) + 'px'; cv.style.top = (e.clientY - drag.dy) + 'px'; });
+    const drop = () => {
+      if (!drag) return; drag = null;
+      const x0 = parseFloat(cv.style.left), y0 = parseFloat(cv.style.top);
+      if (Math.hypot(x0 - tx, y0 - ty) < Math.max(14, Math.min(pw, ph) * .28)) {
+        cv.style.left = tx + 'px'; cv.style.top = ty + 'px'; cv.style.zIndex = 2; cv.classList.add('placed');
+        jg.placed++; jgStatus();
+        if (jg.placed === jg.total) jgWin();
+      }
+    };
+    cv.addEventListener('pointerup', drop); cv.addEventListener('pointercancel', drop);
+    area.appendChild(cv);
+  }
+  free(pic); jgStatus();
+}
+function jgWin() {
+  clearInterval(jg.timer); jg.tEnd = Date.now(); jgStatus();
+  $('jgWinText').innerHTML = `ต่อครบ <b>${jg.total}</b> ชิ้นแล้ว!<br>ใช้เวลา <b>${fmtT(jg.tEnd - jg.t0)}</b>`;
+  setTimeout(() => { $('jgWin').style.display = 'flex'; }, 350);
+  const area = $('jgArea');
+  for (let i = 0; i < 26; i++) {
+    const p = document.createElement('div'); p.className = 'petal'; p.textContent = ['🌸', '✨', '🎉', '🌸'][i % 4];
+    p.style.left = Math.random() * 100 + '%'; p.style.animationDuration = (2.2 + Math.random() * 2) + 's'; p.style.animationDelay = Math.random() * .8 + 's';
+    area.appendChild(p); setTimeout(() => p.remove(), 5000);
+  }
+}
+$('jgHint').onclick = () => { const b = $('jgBoard'); if (b) { b.classList.toggle('hint'); $('jgHint').classList.toggle('acc', b.classList.contains('hint')); } };
+$('jgAgain').onclick = () => startJigsaw(jg ? jg.n : 4);
+const jgLeave = () => { if (jg && jg.timer) clearInterval(jg.timer); show('sEditor'); render(); };
+$('jgBack').onclick = jgLeave; $('jgDone').onclick = jgLeave;
 
 // ---------- frames ----------
 const FRAMES = [['none', 'ไม่มี'], ['white', 'ขอบขาว'], ['polaroid', 'โพลารอยด์'], ['film', 'ฟิล์ม 35mm'], ['scan', 'ฟิล์มสแกน'],
-  ['cinema', 'ซีเนมา'], ['rounded', 'มุมมน'], ['sakura', 'ซากุระ'], ['stamp', 'แสตมป์']];
+  ['cinema', 'ซีเนมา'], ['rounded', 'มุมมน'], ['sakura', 'ซากุระ'], ['stamp', 'แสตมป์'], ['jigsaw', 'จิ๊กซอว์'], ['jigsaw2', 'จิ๊กซอว์ขาด']];
 function buildFrames() {
   const box = $('frameThumbs'); box.innerHTML = '';
   FRAMES.forEach(([id, name]) => {
@@ -1408,7 +1660,7 @@ function addSticker(st) {
 }
 function buildStickers() {
   const tabs = $('stTabs'); tabs.innerHTML = '';
-  ['อีโมจิ', 'ลวดลาย', 'ข้อความ'].forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.className = i === stTab ? 'on' : ''; b.onclick = () => { stTab = i; buildStickers(); }; tabs.appendChild(b); });
+  ['อีโมจิ', 'ลวดลาย', 'ข้อความ', 'รูปภาพ'].forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.className = i === stTab ? 'on' : ''; b.onclick = () => { stTab = i; buildStickers(); }; tabs.appendChild(b); });
   const box = $('stItems'); box.innerHTML = '';
   if (stTab === 0) {
     const g = document.createElement('div'); g.className = 'stGrid';
@@ -1422,20 +1674,63 @@ function buildStickers() {
       b.onclick = () => addSticker({ kind: 'shape', v, s: .24, color: null }); g.appendChild(b);
     });
     box.appendChild(g);
-  } else {
+  } else if (stTab === 2) {
     const row = document.createElement('div'); row.className = 'txtRow';
     row.innerHTML = '<input id="stText" type="text" maxlength="40" placeholder="พิมพ์ข้อความ…"><button class="pill acc" id="stTextAdd">เพิ่ม</button>';
     box.appendChild(row);
     const fonts = document.createElement('div'); fonts.className = 'chips';
-    FONTS.forEach(([f, n]) => { const b = document.createElement('button'); b.className = 'chip box' + (f === txtFont ? ' on' : ''); b.textContent = n; b.onclick = () => { txtFont = f; const s = state.stickers[selSticker]; if (s && s.kind === 'text') { s.font = f; render(); pushHist(); } buildStickers(); }; fonts.appendChild(b); });
+    fontChips(fonts, txtFont, f => { txtFont = f; buildStickers(); });
     box.appendChild(fonts);
     const pre = document.createElement('div'); pre.className = 'chips';
     TEXTS.forEach(t => { const b = document.createElement('button'); b.className = 'chip box'; b.textContent = t; b.onclick = () => addSticker({ kind: 'text', v: t, s: .1, color: '#ffffff', font: txtFont, outline: true }); pre.appendChild(b); });
     box.appendChild(pre);
     const add = () => { const v = $('stText').value.trim(); if (!v) return; addSticker({ kind: 'text', v, s: .1, color: '#ffffff', font: txtFont, outline: true }); $('stText').value = ''; };
     $('stTextAdd').onclick = add; $('stText').onkeydown = e => { if (e.key === 'Enter') add(); };
+  } else {
+    const w = document.createElement('div'); w.style.padding = '8px 14px';
+    w.innerHTML = `<button class="pill acc" id="pipAdd" style="width:100%;padding:13px">${icon('pip', 20).replace('<svg', '<svg style="display:inline;vertical-align:-4px;margin-right:6px"')}เลือกรูปมาซ้อน</button>`;
+    box.appendChild(w);
+    $('pipAdd').onclick = () => $('pipFile').click();
   }
   buildStickerEdit();
+}
+function fontChips(box, cur, onPick) {
+  const all = FONTS.map(([k, n]) => [k, n, STICKER_FONTS[k], 800]).concat(GFONTS.map(g => [g[0], g[3], `"${g[1]}"`, g[2]]));
+  all.forEach(([k, n, fam, wt]) => {
+    const b = document.createElement('button'); b.className = 'chip box fontChip' + (k === cur ? ' on' : '');
+    b.textContent = n; b.style.fontFamily = fam; b.style.fontWeight = wt;
+    b.onclick = () => onPick(k); box.appendChild(b);
+  });
+  const on = box.querySelector('.on'); if (on) setTimeout(() => on.scrollIntoView({ inline: 'center', block: 'nearest' }), 0);
+}
+// picture-in-picture: decode, shrink, keep in memory + IndexedDB
+async function photoCanvas(blob) {
+  const im = await decode(blob), s = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+  const c = mk(Math.round(im.naturalWidth * s), Math.round(im.naturalHeight * s)), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height); return c;
+}
+$('pipFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f || !img) return;
+  let c; try { c = await photoCanvas(f); } catch (err) { toast('เปิดรูปนี้ไม่ได้'); return; }
+  const ref = 'ph' + Date.now().toString(36);
+  PHOTOS[ref] = c;
+  try { const b = await new Promise(r => c.toBlob(r, 'image/jpeg', .9)); await tx('images', 'readwrite', s => s.put(b, projectId + ':' + ref)); } catch (err) {}
+  addSticker({ kind: 'photo', ref, s: .42, shape: 'round', border: true, shadow: true });
+});
+async function preloadPhotos(list, pid) {
+  await Promise.all((list || []).filter(s => s.kind === 'photo' && !PHOTOS[s.ref]).map(async s => {
+    try { const b = await tx('images', 'readonly', st => st.get(pid + ':' + s.ref)); if (b) PHOTOS[s.ref] = await photoCanvas(b); } catch (e) {}
+  }));
+}
+// fonts must be loaded before canvas can draw with them
+const fontOK = {};
+function missingFonts(list) { return (list || []).filter(s => s.kind === 'text' && GFONT[s.font] && !fontOK[s.font + '|' + s.v]); }
+async function loadFonts(list) {
+  await Promise.all(missingFonts(list).map(async s => {
+    const g = GFONT[s.font], spec = `${g[2]} 40px "${g[1]}"`;
+    try { await Promise.race([document.fonts.load(spec, s.v), new Promise(r => setTimeout(r, 6000))]); } catch (e) {}
+    fontOK[s.font + '|' + s.v] = true;
+  }));
 }
 function rangeRow(label, ic, min, max, val, fmt, onInput) {
   const row = document.createElement('div'); row.className = 'srow';
@@ -1454,7 +1749,30 @@ function buildStickerEdit() {
   box.appendChild(rangeRow('ขนาด', 'zoom', 2, 120, Math.round(st.s * 100), v => v, v => st.s = v / 100));
   box.appendChild(rangeRow('หมุน', 'rotr', -180, 180, Math.round((st.rot || 0) * 180 / Math.PI), v => v + '°', v => st.rot = v * Math.PI / 180));
   box.appendChild(rangeRow('ความทึบ', 'drop', 10, 100, Math.round((st.op == null ? 1 : st.op) * 100), v => v + '%', v => st.op = v / 100));
-  if (st.kind !== 'emoji') {
+  if (st.kind === 'text') {
+    const tr = document.createElement('div'); tr.className = 'txtRow';
+    tr.innerHTML = '<input type="text" maxlength="40"><button class="pill acc">แก้ข้อความ</button>';
+    const inp = tr.querySelector('input'); inp.value = st.v;
+    const apply = () => { const v = inp.value.trim(); if (v && v !== st.v) { st.v = v; render(); pushHist(); } };
+    tr.querySelector('button').onclick = apply; inp.onkeydown = e => { if (e.key === 'Enter') apply(); };
+    box.appendChild(tr);
+    const fc = document.createElement('div'); fc.className = 'chips';
+    fontChips(fc, st.font, f => { st.font = f; txtFont = f; render(); pushHist(); buildStickerEdit(); });
+    box.appendChild(fc);
+  }
+  if (st.kind === 'photo') {
+    const sc = document.createElement('div'); sc.className = 'chips';
+    [['rect', 'สี่เหลี่ยม'], ['round', 'มุมมน'], ['circle', 'วงกลม'], ['heart', 'หัวใจ'], ['polaroid', 'โพลารอยด์']].forEach(([v, n]) => {
+      const b = document.createElement('button'); b.className = 'chip box' + (st.shape === v ? ' on' : ''); b.textContent = n;
+      b.onclick = () => { st.shape = v; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(b);
+    });
+    const t1 = document.createElement('button'); t1.className = 'chip box' + (st.border ? ' on' : ''); t1.textContent = 'ขอบขาว';
+    t1.onclick = () => { st.border = !st.border; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(t1);
+    const t2 = document.createElement('button'); t2.className = 'chip box' + (st.shadow ? ' on' : ''); t2.textContent = 'เงา';
+    t2.onclick = () => { st.shadow = !st.shadow; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(t2);
+    box.appendChild(sc);
+  }
+  if (st.kind === 'shape' || st.kind === 'text') {
     const sw = document.createElement('div'); sw.className = 'swatches';
     COLORS.forEach(c => { const b = document.createElement('button'); b.style.background = c; if ((st.color || '') === c) b.className = 'on'; b.onclick = () => { st.color = c; render(); pushHist(); buildStickerEdit(); }; sw.appendChild(b); });
     box.appendChild(sw);
@@ -1469,6 +1787,7 @@ function buildStickerEdit() {
 }
 function stickerBox(st, W, H) {
   const px = st.s * Math.min(W, H);
+  if (st.kind === 'photo') return photoBox(st, px);
   if (st.kind === 'text') { vctx.save(); vctx.font = stickerFont(st, px); const tw = vctx.measureText(st.v).width; vctx.restore(); return [tw / 2 + px * .2, px * .7]; }
   return [px * .58, px * .58];
 }
@@ -1538,7 +1857,7 @@ document.querySelectorAll('#edTools button').forEach(b => b.onclick = () => show
 
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
-  document.body.classList.toggle('full', id === 'sEditor' || id === 'sExport');
+  document.body.classList.toggle('full', id === 'sEditor' || id === 'sExport' || id === 'sJigsaw');
   document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
   if (id === 'sHome') paintHome();
   if (id === 'sLibrary') paintLibrary();
@@ -1559,10 +1878,12 @@ document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
 });
 function openEditor(tool) {
   show('sEditor');
-  const map = { filter: ['pFilter'], adjust: ['pAdjust', 0], color: ['pAdjust', 1], crop: ['pCrop'], fx: ['pFx'], more: ['pMore'] };
+  const map = { filter: ['pFilter'], adjust: ['pAdjust', 0], color: ['pAdjust', 1], crop: ['pCrop'], fx: ['pFx'], more: ['pMore'], sticker: ['pSticker'], pip: ['pSticker'], jigsaw: ['pFilter'] };
   const [p, sub] = map[tool] || ['pFilter'];
+  if (tool === 'pip') stTab = 3; else if (tool === 'sticker' && stTab === 3) stTab = 0;
   showPanel(p, sub);
   requestAnimationFrame(render);
+  if (tool === 'jigsaw') openJigsaw();
 }
 async function decode(blob) {
   const im = new Image(); im.src = URL.createObjectURL(blob);
@@ -1594,6 +1915,7 @@ async function openProject(id) {
   if (projectId && projectId !== id) await saveNow();
   try { img = await decode(blob); } catch (e) { toast('เปิดรูปนี้ไม่ได้'); return; }
   imgBlob = blob; projectId = id; applySnap(meta.snap);
+  await preloadPhotos(state.stickers, id); await loadFonts(state.stickers);
   hist = []; hi = -1; rebuildSources(true); buildCats(); pushHist();
   openEditor('filter');
 }
@@ -1633,6 +1955,7 @@ async function paintLibrary() {
       ev.stopPropagation();
       if (x.dataset.sure !== '1') { x.dataset.sure = '1'; x.textContent = 'ลบ'; x.style.width = '40px'; x.style.borderRadius = '12px'; x.style.background = '#d9536f'; setTimeout(() => { x.dataset.sure = ''; x.textContent = '×'; x.style.width = ''; x.style.borderRadius = ''; x.style.background = ''; }, 2500); return; }
       await tx('projects', 'readwrite', s => s.delete(p.id)); await tx('images', 'readwrite', s => s.delete(p.id));
+      await tx('images', 'readwrite', s => s.delete(IDBKeyRange.bound(p.id + ':', p.id + ':\uffff')));
       if (projectId === p.id) { projectId = null; img = null; srcPrev = null; }
       paintLibrary();
     };
@@ -1733,6 +2056,7 @@ $('doExport').onclick = () => {
         const tmp = mk(src.w, src.h); tmp.getContext('2d').putImageData(src.data, 0, 0); ux.drawImage(tmp, 0, 0, d.w, d.h); free(tmp);
         src.data = ux.getImageData(0, 0, d.w, d.h); src.w = d.w; src.h = d.h; free(up);
       }
+      await loadFonts(state.stickers);
       c = processImage(src.data, src.w, src.h, state);
       const blob = await new Promise(res => c.toBlob(res, MIME[ex.fmt], ex.q / 100));
       free(c); c = null;
