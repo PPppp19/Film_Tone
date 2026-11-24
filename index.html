@@ -1129,6 +1129,82 @@ addFrame = function (cv, type, seed) {
   return _addFrameBase(cv, type, seed);
 };
 
+// =============== jigsaw decorations ===============
+const PIECE_TABS = { piece: [1, -1, 1, 1], piece2: [-1, 1, 1, -1] };
+function drawPiece(c, b, col, tabs) {
+  c.save();
+  piecePath(c, -b / 2, -b / 2, b, b, tabs); c.fillStyle = col || '#b39dfa'; c.fill();
+  c.clip();
+  c.lineWidth = b * .09;
+  c.save(); c.translate(-b * .03, -b * .03); piecePath(c, -b / 2, -b / 2, b, b, tabs); c.strokeStyle = 'rgba(255,255,255,.5)'; c.stroke(); c.restore();
+  c.save(); c.translate(b * .03, b * .03); piecePath(c, -b / 2, -b / 2, b, b, tabs); c.strokeStyle = 'rgba(0,0,0,.22)'; c.stroke(); c.restore();
+  c.restore();
+  piecePath(c, -b / 2, -b / 2, b, b, tabs); c.lineWidth = Math.max(1, b * .02); c.strokeStyle = 'rgba(0,0,0,.28)'; c.stroke();
+}
+const _drawShapeBase = drawShape;
+drawShape = function (c, kind, s, col) {
+  if (kind === 'piece' || kind === 'piece2') { drawPiece(c, s / 1.46, col, PIECE_TABS[kind]); return; }
+  if (kind === 'pieces') {
+    const b = s / 2.5, t = jigTabs(2, 2, 7), cols = col ? [col, col, col] : ['#f7a8c8', '#b39dfa', '#8fd6b4'];
+    [[0, 0, 0], [0, 1, 1], [1, 0, 2]].forEach(([r, cc, i]) => {
+      c.save(); c.translate((cc - .5) * b, (r - .5) * b);
+      if (i === 2) { c.translate(-b * .1, b * .12); c.rotate(-.25); }
+      drawPiece(c, b, cols[i], t(r, cc)); c.restore();
+    });
+    return;
+  }
+  _drawShapeBase(c, kind, s, col);
+};
+const _shapePathBase = shapePath;
+shapePath = function (c, shape, w, h) {
+  if (shape === 'piece') { const b = w / 1.46; piecePath(c, -b / 2, -b / 2, b, b, [1, 1, -1, 1]); return; }
+  _shapePathBase(c, shape, w, h);
+};
+photoDims = function (st, im, px) {
+  const sq = st.shape === 'circle' || st.shape === 'heart' || st.shape === 'piece';
+  return { w: px, h: sq ? px : px * im.height / im.width, sq };
+};
+// photo corner breaking apart into flying pieces
+function jigsawBreak(cv, seed) {
+  const w = cv.width, h = cv.height, m = Math.min(w, h), p = Math.round(m * .16), bg = '#efeaf6';
+  const o = mk(w + p * 2, h + p * 2), c = o.getContext('2d');
+  c.fillStyle = bg; c.fillRect(0, 0, o.width, o.height);
+  const [rows, cols] = jigGrid(w, h, 36), pw = w / cols, ph = h / rows, tabs = jigTabs(rows, cols, seed);
+  const rnd = mulberry32(seed + 11), corner = Math.floor(rnd() * 4);
+  const right = corner === 0 || corner === 2, top = corner <= 1;
+  const dist = (r, cc) => (right ? cols - 1 - cc : cc) + (top ? r : rows - 1 - r);
+  c.save(); c.shadowColor = 'rgba(40,20,60,.25)'; c.shadowBlur = m * .03; c.drawImage(cv, p, p); c.restore();
+  const broken = [];
+  for (let r = 0; r < rows; r++) for (let cc = 0; cc < cols; cc++) { const d = dist(r, cc); if (d <= 1 || (d === 2 && rnd() < .55)) broken.push([r, cc, d]); }
+  c.save(); c.translate(p, p); c.lineJoin = 'round';
+  for (let r = 0; r < rows; r++) for (let cc = 0; cc < cols; cc++) {
+    const d = dist(r, cc); if (d > 4) continue;
+    piecePath(c, cc * pw, r * ph, pw, ph, tabs(r, cc));
+    c.strokeStyle = `rgba(0,0,0,${.4 - d * .07})`; c.lineWidth = Math.max(1, m * .003); c.stroke();
+  }
+  broken.forEach(([r, cc]) => {
+    piecePath(c, cc * pw, r * ph, pw, ph, tabs(r, cc)); c.fillStyle = bg; c.fill();
+    c.save(); c.clip(); c.shadowColor = 'rgba(40,20,60,.45)'; c.shadowBlur = m * .015; c.lineWidth = m * .012; c.strokeStyle = 'rgba(40,20,60,.35)'; c.stroke(); c.restore();
+  });
+  c.restore();
+  const dx = right ? 1 : -1, dy = top ? -1 : 1, mg = Math.max(pw, ph) * .3;
+  broken.forEach(([r, cc, d]) => {
+    const pc = mk(Math.ceil(pw + mg * 2), Math.ceil(ph + mg * 2)), px = pc.getContext('2d');
+    px.save(); piecePath(px, mg, mg, pw, ph, tabs(r, cc)); px.clip(); px.drawImage(cv, -cc * pw + mg, -r * ph + mg); px.restore();
+    piecePath(px, mg, mg, pw, ph, tabs(r, cc)); px.strokeStyle = 'rgba(255,255,255,.5)'; px.lineWidth = Math.max(1, m * .0025); px.stroke();
+    const k = (3 - d) * .45 + rnd() * .4, ox = dx * k * pw * .8 + (rnd() - .5) * pw * .3, oy = dy * k * ph * .8 + (rnd() - .5) * ph * .3;
+    c.save(); c.translate(p + cc * pw + pw / 2 + ox, p + r * ph + ph / 2 + oy); c.rotate((rnd() - .5) * .9);
+    c.shadowColor = 'rgba(30,15,45,.45)'; c.shadowBlur = m * .025; c.shadowOffsetY = m * .012;
+    c.drawImage(pc, -pw / 2 - mg, -ph / 2 - mg); c.restore(); free(pc);
+  });
+  return o;
+}
+const _addFrameBase2 = addFrame;
+addFrame = function (cv, type, seed) {
+  if (type === 'jigsaw3') return jigsawBreak(cv, seed);
+  return _addFrameBase2(cv, type, seed);
+};
+
 // ======================================================================
 //                              APP (v2 UI)
 // ======================================================================
@@ -1627,7 +1703,7 @@ $('jgBack').onclick = jgLeave; $('jgDone').onclick = jgLeave;
 
 // ---------- frames ----------
 const FRAMES = [['none', 'ไม่มี'], ['white', 'ขอบขาว'], ['polaroid', 'โพลารอยด์'], ['film', 'ฟิล์ม 35mm'], ['scan', 'ฟิล์มสแกน'],
-  ['cinema', 'ซีเนมา'], ['rounded', 'มุมมน'], ['sakura', 'ซากุระ'], ['stamp', 'แสตมป์'], ['jigsaw', 'จิ๊กซอว์'], ['jigsaw2', 'จิ๊กซอว์ขาด']];
+  ['cinema', 'ซีเนมา'], ['rounded', 'มุมมน'], ['sakura', 'ซากุระ'], ['stamp', 'แสตมป์'], ['jigsaw', 'จิ๊กซอว์'], ['jigsaw2', 'จิ๊กซอว์ขาด'], ['jigsaw3', 'จิ๊กซอว์แตก']];
 function buildFrames() {
   const box = $('frameThumbs'); box.innerHTML = '';
   FRAMES.forEach(([id, name]) => {
@@ -1648,7 +1724,7 @@ function buildFrames() {
 // ---------- stickers ----------
 const EMOJI = ['🌸', '🌷', '🌺', '🍁', '🍂', '🌙', '⭐️', '✨', '💫', '☀️', '☁️', '🌈', '🌊', '🗻', '⛩️', '🎐', '🎏', '🏮', '🍡', '🍣', '🍵', '🍜', '📷', '🎞️', '💖', '🎀', '🦋', '🐱', '🐶', '🫧'];
 const SHAPES = [['sakura', 'ซากุระ'], ['petals', 'กลีบ'], ['heart', 'หัวใจ'], ['star', 'ดาว'], ['sparkle', 'ประกาย'], ['cloud', 'เมฆ'], ['sun', 'พระอาทิตย์'],
-  ['moon', 'จันทร์'], ['tape', 'เทปกาว'], ['stamp', 'ตราประทับ'], ['torii', 'โทริอิ'], ['fuji', 'ภูเขา'], ['wave', 'คลื่น'], ['flower', 'ดอกไม้']];
+  ['moon', 'จันทร์'], ['tape', 'เทปกาว'], ['stamp', 'ตราประทับ'], ['torii', 'โทริอิ'], ['fuji', 'ภูเขา'], ['wave', 'คลื่น'], ['flower', 'ดอกไม้'], ['piece', 'จิ๊กซอว์'], ['piece2', 'จิ๊กซอว์ 2'], ['pieces', 'จิ๊กซอว์กลุ่ม']];
 const TEXTS = ['東京', '京都', 'さくら', '思い出', '夏', 'TOKYO', 'JAPAN', 'Summer', 'film diary', 'hello ✿'];
 const COLORS = ['#ffffff', '#1f1b2b', '#f7b6cf', '#ff6f9c', '#e0452b', '#ffb43c', '#ffd45c', '#7fd3a5', '#5d79c7', '#b39dfa'];
 const FONTS = [['sans', 'ปกติ'], ['serif', 'มินโจ'], ['round', 'มน'], ['mono', 'พิมพ์ดีด']];
@@ -1762,7 +1838,7 @@ function buildStickerEdit() {
   }
   if (st.kind === 'photo') {
     const sc = document.createElement('div'); sc.className = 'chips';
-    [['rect', 'สี่เหลี่ยม'], ['round', 'มุมมน'], ['circle', 'วงกลม'], ['heart', 'หัวใจ'], ['polaroid', 'โพลารอยด์']].forEach(([v, n]) => {
+    [['rect', 'สี่เหลี่ยม'], ['round', 'มุมมน'], ['circle', 'วงกลม'], ['heart', 'หัวใจ'], ['piece', 'จิ๊กซอว์'], ['polaroid', 'โพลารอยด์']].forEach(([v, n]) => {
       const b = document.createElement('button'); b.className = 'chip box' + (st.shape === v ? ' on' : ''); b.textContent = n;
       b.onclick = () => { st.shape = v; render(); pushHist(); buildStickerEdit(); }; sc.appendChild(b);
     });
